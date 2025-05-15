@@ -9,6 +9,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "prisma:init": "prisma init"
   },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
