@@ -1,22 +1,31 @@
 // backend/src/admin/admin.routes.ts
 import { Router } from 'express';
-import { updateUserRole } from './admin.controller';
-import { authenticateToken, isAdmin } from '../auth/auth.middleware'; // Potrzebujemy middleware
+import { updateUserRole, createRose, listRoses } from './admin.controller';
+import { authenticateToken, isAdmin } from '../auth/auth.middleware';
 
 const router = Router();
 
-// Trasa do zmiany roli użytkownika przez Admina
-// Używamy PATCH, ponieważ aktualizujemy część zasobu użytkownika
-// :userIdToUpdate to parametr trasy
+// --- Zarządzanie Użytkownikami ---
 router.patch(
   '/users/:userIdToUpdate/role',
-  authenticateToken, // Najpierw uwierzytelnij
-  isAdmin,           // Potem sprawdź, czy to Admin
+  authenticateToken,
+  isAdmin,
   updateUserRole
 );
 
-// W przyszłości tutaj mogą być inne trasy administracyjne, np.:
-// router.delete('/users/:userId', authenticateToken, isAdmin, deleteUser);
-// router.get('/users', authenticateToken, isAdmin, listUsers); // Już mamy w index.ts, ale można przenieść
+// --- Zarządzanie Różami ---
+router.post(
+  '/roses', // Tworzenie nowej Róży
+  authenticateToken,
+  isAdmin,
+  createRose
+);
+
+router.get(
+  '/roses', // Listowanie wszystkich Róż
+  authenticateToken,
+  isAdmin,
+  listRoses
+);
 
 export default router;
