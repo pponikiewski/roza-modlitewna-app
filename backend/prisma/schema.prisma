@@ -53,7 +53,7 @@ model RoseMembership {
   // Pola specyficzne dla członkostwa:
   assignedMystery String?  // Przydzielona tajemnica (np. "Radosna - Zwiastowanie")
   // Możemy dodać więcej, np. datę potwierdzenia zapoznania się z tajemnicą
-  // confirmedAt DateTime?
+  mysteryConfirmedAt DateTime?
 
   user User @relation(fields: [userId], references: [id])
   rose Rose @relation(fields: [roseId], references: [id])
