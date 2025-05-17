@@ -9,23 +9,56 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Definicja typu enum dla ról użytkowników
-enum UserRole {
-  ADMIN
-  ZELATOR
-  MEMBER
-}
-
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
   password  String
-  // Użycie zdefiniowanego typu enum UserRole
-  // Domyślna wartość to MEMBER z enum UserRole
-  role      UserRole @default(MEMBER)
+  role      String   @default("MEMBER") // ADMIN, ZELATOR, MEMBER
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // ... (zakomentowane relacje)
+  // Relacje:
+  // Użytkownik może być Zelatorem wielu Róż
+  rosesManaged    Rose[]           @relation("ZelatorToRose")
+  // Użytkownik może być członkiem wielu Róż (przez tabelę RoseMembership)
+  roseMemberships RoseMembership[]
+}
+
+model Rose {
+  id          String   @id @default(cuid())
+  name        String   // Nazwa Róży, np. "Róża Św. Teresy"
+  description String?  // Opcjonalny opis
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacja: Każda Róża ma jednego Zelatora (Użytkownika)
+  zelatorId String
+  zelator   User     @relation("ZelatorToRose", fields: [zelatorId], references: [id])
+
+  // Relacja: Róża ma wielu członków (przez tabelę RoseMembership)
+  members RoseMembership[]
+
+  // Możemy dodać intencję główną bezpośrednio tutaj lub jako oddzielny model później
+  // currentIntention String?
+}
+
+model RoseMembership {
+  id        String   @id @default(cuid())
+  userId    String   // ID członka (Użytkownika)
+  roseId    String   // ID Róży
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Pola specyficzne dla członkostwa:
+  assignedMystery String?  // Przydzielona tajemnica (np. "Radosna - Zwiastowanie")
+  // Możemy dodać więcej, np. datę potwierdzenia zapoznania się z tajemnicą
+  // confirmedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+  rose Rose @relation(fields: [roseId], references: [id])
+
+  // Zapewnienie unikalności kombinacji użytkownika i róży
+  // (jeden użytkownik może być członkiem danej róży tylko raz)
+  @@unique([userId, roseId])
 }

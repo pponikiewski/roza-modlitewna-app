@@ -1,24 +1,29 @@
 // backend/src/admin/admin.controller.ts
 import { Response, NextFunction } from 'express';
-// POPRAWIONY IMPORT:
-import { AuthenticatedRequest } from '../auth/auth.middleware'; // Zamiast: '../../src/auth/auth.middleware'
-// POPRAWIONY IMPORT:
-import prisma from '../db'; // Zamiast: '../../src/db'
+import { AuthenticatedRequest } from '../auth/auth.middleware';
+import prisma from '../db';
+import { UserRole } from '../types/user.types'; // Poprawny import
 
-const ALLOWED_ROLES_TO_ASSIGN: string[] = ['MEMBER', 'ZELATOR'];
+// Dopuszczalne role, które Admin może przypisać
+const ALLOWED_ROLES_TO_ASSIGN: UserRole[] = [UserRole.MEMBER, UserRole.ZELATOR];
 
 export const updateUserRole = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { userIdToUpdate } = req.params;
-    const { newRole } = req.body;
+    const { newRole } = req.body; // newRole przyjdzie jako string z requestu
 
-    if (req.user?.role !== 'ADMIN') {
+    if (req.user?.role !== UserRole.ADMIN) { // Porównanie z enumem
       res.status(403).json({ error: 'Brak uprawnień administratora.' });
       return;
     }
 
-    if (!newRole || !ALLOWED_ROLES_TO_ASSIGN.includes(newRole.toUpperCase())) {
-      res.status(400).json({ error: `Nieprawidłowa rola. Dozwolone role to: ${ALLOWED_ROLES_TO_ASSIGN.join(', ')}` });
+    // Walidacja nowej roli - sprawdzamy, czy string newRole jest jedną z wartości enuma
+    const isValidRole = Object.values(UserRole).includes(newRole?.toUpperCase() as UserRole);
+    const isAllowedToAssign = ALLOWED_ROLES_TO_ASSIGN.includes(newRole?.toUpperCase() as UserRole);
+
+
+    if (!newRole || !isValidRole || !isAllowedToAssign) {
+      res.status(400).json({ error: `Nieprawidłowa rola lub rola niedozwolona do przypisania. Dozwolone do przypisania: ${ALLOWED_ROLES_TO_ASSIGN.join(', ')}` });
       return;
     }
 
@@ -36,14 +41,14 @@ export const updateUserRole = async (req: AuthenticatedRequest, res: Response, n
       return;
     }
     
-    if (userToUpdate.role === 'ADMIN') {
+    if (userToUpdate.role === UserRole.ADMIN) { // Porównanie z enumem
         res.status(403).json({ error: 'Nie można zmienić roli innego administratora.'});
         return;
     }
 
     const updatedUser = await prisma.user.update({
       where: { id: userIdToUpdate },
-      data: { role: newRole.toUpperCase() },
+      data: { role: newRole.toUpperCase() as UserRole }, // Rzutujemy string na UserRole (zakładając walidację)
       select: {
         id: true,
         email: true,

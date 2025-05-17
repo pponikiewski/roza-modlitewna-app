@@ -1,6 +1,8 @@
 // backend/src/auth/auth.middleware.ts
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
+import { UserRole } from '../types/user.types'; // <<<<<<<<<<<< DODAJ IMPORT
+
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -59,5 +61,5 @@ export const authorizeRole = (allowedRoles: string[]): RequestHandler => {
   };
 };
 
-export const isAdmin: RequestHandler = authorizeRole(['ADMIN']);
-export const isZelator: RequestHandler = authorizeRole(['ZELATOR', 'ADMIN']);
+export const isAdmin: RequestHandler = authorizeRole([UserRole.ADMIN]);
+export const isZelator: RequestHandler = authorizeRole([UserRole.ZELATOR, UserRole.ADMIN]);
