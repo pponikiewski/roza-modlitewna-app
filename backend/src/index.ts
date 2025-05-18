@@ -3,53 +3,87 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import prisma from './db';
 import authRoutes from './auth/auth.routes';
-import adminRoutes from './admin/admin.routes'; // <<<<<<<<<<<<<<<<<<<<<<<<<<< DODAJ IMPORT
+import adminRoutes from './admin/admin.routes';
+import zelatorRoutes from './zelator/zelator.routes'; // Dodany import tras Zelatora
 import {
   authenticateToken,
-  authorizeRole,
-  // isAdmin, // Możemy nie potrzebować, jeśli używamy authorizeRole bezpośrednio lub w admin.routes
+  authorizeRole,     // Ogólne middleware do autoryzacji na podstawie roli
+  // isAdmin,        // Można używać tego specyficznego, jeśli jest wygodniej
   AuthenticatedRequest
 } from './auth/auth.middleware';
+import { UserRole } from './types/user.types'; // Import enuma UserRole
 
 dotenv.config();
 
 const app: Express = express();
 const port = process.env.PORT || 3001;
 
-app.use(express.json());
+app.use(express.json()); // Middleware do parsowania JSON w body requestu
 
+// Trasa publiczna powitalna
 app.get('/', (req: Request, res: Response) => {
   res.send('Witaj na serwerze Róży Modlitewnej!');
 });
 
+// Trasy publiczne dla autoryzacji (rejestracja, logowanie)
+// Prefiks /auth jest dodawany do wszystkich tras zdefiniowanych w authRoutes
 app.use('/auth', authRoutes);
-app.use('/admin', adminRoutes); // <<<<<<<<<<<<<<<<<<<<<<<<<<< UŻYJ TRAS ADMINISTRACYJNYCH
+
+// Trasy administracyjne (zarządzanie użytkownikami, Różami na poziomie globalnym)
+// Prefiks /admin jest dodawany do wszystkich tras zdefiniowanych w adminRoutes
+app.use('/admin', adminRoutes);
+
+// Trasy dla Zelatorów (zarządzanie konkretnymi Różami, członkami)
+// Prefiks /zelator jest dodawany do wszystkich tras zdefiniowanych w zelatorRoutes
+app.use('/zelator', zelatorRoutes);
+
+
+// --- Trasy Zabezpieczone (Przykłady / Dodatkowe) ---
 
 // Endpoint do pobierania wszystkich użytkowników - zabezpieczony i tylko dla Admina
-// (Pozostawiamy go tutaj lub możemy przenieść do admin.routes.ts)
+// Ta trasa może też być częścią adminRoutes, ale dla przykładu jest tutaj.
 app.get(
   '/users',
-  authenticateToken,
-  authorizeRole(['ADMIN']), // lub użyj isAdmin z auth.middleware.ts, jeśli wolisz
+  authenticateToken,       // 1. Uwierzytelnij
+  authorizeRole([UserRole.ADMIN]), // 2. Autoryzuj (tylko rola ADMIN)
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
       console.log(`Dostęp do /users przez użytkownika z rolą ADMIN: ${req.user?.email}`);
-      const users = await prisma.user.findMany({ /* ... select ... */ });
+
+      const users = await prisma.user.findMany({
+        select: { // Wybieramy tylko bezpieczne pola do zwrócenia
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
       res.json(users);
     } catch (error) {
-      next(error);
+      next(error); // Przekaż błąd do globalnego error handlera
     }
   }
 );
 
-// Globalny Error Handler
-// ... (pozostaje bez zmian) ...
- app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-     console.error("Wystąpił błąd na serwerze:", err.message);
-     res.status(500).json({ error: 'Wystąpił wewnętrzny błąd serwera. Spróbuj ponownie później.' });
- });
+// --- Globalny Error Handler ---
+// Ten middleware musi być zdefiniowany jako ostatni, po wszystkich app.use() i trasach.
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error("Wystąpił błąd na serwerze:", err.message);
+  // W środowisku deweloperskim można wysłać stack trace dla łatwiejszego debugowania
+  // if (process.env.NODE_ENV === 'development') {
+  //   console.error(err.stack);
+  // }
+  
+  // Dla klienta zawsze wysyłaj generyczny komunikat błędu
+  res.status(500).json({ error: 'Wystąpił wewnętrzny błąd serwera. Spróbuj ponownie później.' });
+});
 
-
+// Uruchomienie serwera
 app.listen(port, () => {
   console.log(`⚡️[server]: Serwer uruchomiony na http://localhost:${port}`);
 });
