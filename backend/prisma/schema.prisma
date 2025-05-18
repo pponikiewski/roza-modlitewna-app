@@ -18,47 +18,59 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relacje:
-  // Użytkownik może być Zelatorem wielu Róż
-  rosesManaged    Rose[]           @relation("ZelatorToRose")
-  // Użytkownik może być członkiem wielu Róż (przez tabelę RoseMembership)
+  rosesManaged    Rose[]
   roseMemberships RoseMembership[]
 }
 
 model Rose {
   id          String   @id @default(cuid())
-  name        String   // Nazwa Róży, np. "Róża Św. Teresy"
-  description String?  // Opcjonalny opis
+  name        String
+  description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relacja: Każda Róża ma jednego Zelatora (Użytkownika)
   zelatorId String
-  zelator   User     @relation("ZelatorToRose", fields: [zelatorId], references: [id])
+  zelator   User   @relation(fields: [zelatorId], references: [id])
 
-  // Relacja: Róża ma wielu członków (przez tabelę RoseMembership)
   members RoseMembership[]
-
-  // Możemy dodać intencję główną bezpośrednio tutaj lub jako oddzielny model później
+  // Możemy dodać pole na intencję główną, np.
   // currentIntention String?
+  // currentIntentionSetAt DateTime?
 }
 
 model RoseMembership {
   id        String   @id @default(cuid())
-  userId    String   // ID członka (Użytkownika)
-  roseId    String   // ID Róży
+  userId    String
+  roseId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Pola specyficzne dla członkostwa:
-  assignedMystery String?  // Przydzielona tajemnica (np. "Radosna - Zwiastowanie")
-  // Możemy dodać więcej, np. datę potwierdzenia zapoznania się z tajemnicą
-  mysteryConfirmedAt DateTime?
+  // Aktualnie przydzielona tajemnica - nadal tu jest dla szybkiego dostępu
+  currentAssignedMystery String?
+  mysteryConfirmedAt     DateTime?
 
   user User @relation(fields: [userId], references: [id])
   rose Rose @relation(fields: [roseId], references: [id])
 
-  // Zapewnienie unikalności kombinacji użytkownika i róży
-  // (jeden użytkownik może być członkiem danej róży tylko raz)
+  // Relacja do historii przydzielonych tajemnic
+  mysteryHistory AssignedMysteryHistory[]
+
   @@unique([userId, roseId])
+}
+
+// NOWY MODEL: Historia przydzielonych tajemnic
+model AssignedMysteryHistory {
+  id            String   @id @default(cuid())
+  membershipId  String   // Powiązanie z konkretnym członkostwem w Róży
+  mystery       String   // Nazwa przydzielonej tajemnicy
+  assignedMonth Int      // Miesiąc przydziału (1-12)
+  assignedYear  Int      // Rok przydziału
+  assignedAt    DateTime @default(now()) // Dokładna data i czas przydziału
+
+  membership RoseMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade) // Jeśli usuniemy członkostwo, usuń też historię
+
+  // Indeks dla szybszego wyszukiwania historii dla danego członkostwa
+  @@index([membershipId])
+  // Opcjonalnie, unikalność dla danego członkostwa, tajemnicy i miesiąca/roku, jeśli chcemy zapobiec duplikatom
+  // @@unique([membershipId, mystery, assignedMonth, assignedYear])
 }
