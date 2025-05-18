@@ -3,6 +3,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import prisma from '../db';
 import { UserRole } from '../types/user.types';
+import { assignMysteriesToAllActiveMembers } from '../services/rosary.service';
 
 const ALLOWED_ROLES_TO_ASSIGN: UserRole[] = [UserRole.MEMBER, UserRole.ZELATOR];
 
@@ -127,3 +128,14 @@ export const listRoses = async (req: AuthenticatedRequest, res: Response, next: 
     next(error);
   }
 };
+  export const triggerMysteryAssignment = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      // Uruchomienie logiki w tle, aby nie blokować odpowiedzi HTTP na długo
+      assignMysteriesToAllActiveMembers().catch((err: any) => {
+        console.error("Błąd podczas asynchronicznego przydzielania tajemnic:", err);
+      });
+      res.status(202).json({ message: 'Proces przydzielania tajemnic został zainicjowany w tle.' });
+    } catch (error) {
+      next(error);
+    }
+  };

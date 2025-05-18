@@ -4,54 +4,64 @@ import { AuthenticatedRequest } from '../auth/auth.middleware';
 import prisma from '../db';
 import { UserRole } from '../types/user.types';
 
-// Funkcja pomocnicza do sprawdzania, czy zalogowany użytkownik jest Zelatorem danej Róży
-async function isUserZelatorOfRose(userId: string, roseId: string): Promise<boolean> {
-  const rose = await prisma.rose.findUnique({
-    where: { id: roseId },
-    select: { zelatorId: true }
-  });
-  return rose?.zelatorId === userId;
+async function canManageRose(requestingUser: AuthenticatedRequest['user'], roseId: string): Promise<boolean> {
+  if (!requestingUser) return false;
+  if (requestingUser.role === UserRole.ADMIN) return true;
+  if (requestingUser.role === UserRole.ZELATOR) {
+    const rose = await prisma.rose.findUnique({
+      where: { id: roseId },
+      select: { zelatorId: true }
+    });
+    return rose?.zelatorId === requestingUser.userId;
+  }
+  return false;
 }
 
-// Dodawanie członka do Róży
 export const addMemberToRose = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { roseId } = req.params; // ID Róży z parametrów URL
-    const { userIdToAdd } = req.body; // ID użytkownika do dodania z ciała żądania
-    const zelatorId = req.user?.userId; // ID zalogowanego Zelatora
+    const { roseId } = req.params;
+    const { userIdToAdd } = req.body;
+    const requestingUser = req.user;
 
     if (!userIdToAdd) {
       res.status(400).json({ error: 'ID użytkownika do dodania jest wymagane.' });
       return;
     }
 
-    if (!zelatorId) {
-      // Ten błąd nie powinien wystąpić, jeśli authenticateToken działa poprawnie
-      res.status(403).json({ error: 'Nie udało się zidentyfikować Zelatora.' });
+    if (!requestingUser) {
+      res.status(403).json({ error: 'Nie udało się zidentyfikować użytkownika wysyłającego żądanie.' });
+      return;
+    }
+    
+    const roseExists = await prisma.rose.findUnique({ where: { id: roseId }});
+    if (!roseExists) {
+        res.status(404).json({ error: 'Róża o podanym ID nie istnieje.' });
+        return;
+    }
+
+    const hasPermission = await canManageRose(requestingUser, roseId);
+    if (!hasPermission) {
+      res.status(403).json({ error: 'Nie masz uprawnień do dodawania członków do tej Róży.' });
       return;
     }
 
-    // Sprawdź, czy zalogowany użytkownik jest Zelatorem tej konkretnej Róży
-    const isZelator = await isUserZelatorOfRose(zelatorId, roseId);
-    if (!isZelator) {
-      res.status(403).json({ error: 'Nie masz uprawnień do zarządzania tą Różą.' });
-      return;
-    }
-
-    // Sprawdź, czy użytkownik do dodania istnieje
     const userExists = await prisma.user.findUnique({ where: { id: userIdToAdd } });
     if (!userExists) {
       res.status(404).json({ error: 'Użytkownik, którego próbujesz dodać, nie istnieje.' });
       return;
     }
     
-    // Zelator nie może dodać samego siebie jako członka (jest już zelatorem)
-    if (userIdToAdd === zelatorId) {
-        res.status(400).json({ error: 'Zelator nie może dodać samego siebie jako członka do Róży, którą zarządza.' });
+    // USUWAMY LUB KOMENTUJEMY PONIŻSZY BLOK:
+    /*
+    if (userIdToAdd === roseExists.zelatorId) {
+        res.status(400).json({ error: 'Użytkownik jest już Zelatorem tej Róży i nie może być dodany jako członek.' });
         return;
     }
+    */
+    // Jeśli Zelator może być członkiem, to powyższe ograniczenie jest niepotrzebne.
+    // Jednak nadal musimy upewnić się, że nie dodajemy go dwa razy (raz jako Zelator - co jest relacją w modelu Rose,
+    // a drugi raz jako wpis w RoseMembership). Logika sprawdzająca existingMembership poniżej powinna to obsłużyć.
 
-    // Sprawdź, czy użytkownik nie jest już członkiem tej Róży
     const existingMembership = await prisma.roseMembership.findUnique({
       where: { userId_roseId: { userId: userIdToAdd, roseId: roseId } },
     });
@@ -61,16 +71,12 @@ export const addMemberToRose = async (req: AuthenticatedRequest, res: Response, 
       return;
     }
 
-    // Dodaj użytkownika do Róży
-    // Na tym etapie nie przydzielamy jeszcze tajemnicy (`assignedMystery` będzie null)
     const newMembership = await prisma.roseMembership.create({
       data: {
         user: { connect: { id: userIdToAdd } },
         rose: { connect: { id: roseId } },
-        // assignedMystery: null, // Domyślnie
-        // mysteryConfirmedAt: null, // Domyślnie
       },
-      include: { // Dołącz dane użytkownika do odpowiedzi
+      include: {
          user: { select: { id: true, email: true, name: true, role: true } }
       }
     });
@@ -82,46 +88,44 @@ export const addMemberToRose = async (req: AuthenticatedRequest, res: Response, 
   }
 };
 
-// Listowanie członków konkretnej Róży
+// Funkcja listRoseMembers pozostaje bez zmian
 export const listRoseMembers = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const { roseId } = req.params;
-    const requestingUserId = req.user?.userId; // Może być Zelator lub Admin
+ try {
+   const { roseId } = req.params;
+   const requestingUser = req.user;
 
-    if (!requestingUserId) {
-     res.status(403).json({ error: 'Nie udało się zidentyfikować użytkownika.' });
+   if (!requestingUser) {
+    res.status(403).json({ error: 'Nie udało się zidentyfikować użytkownika.' });
+    return;
+  }
+  
+  const roseExists = await prisma.rose.findUnique({ where: { id: roseId }});
+  if (!roseExists) {
+      res.status(404).json({ error: 'Róża o podanym ID nie istnieje.' });
+      return;
+  }
+
+   const hasPermission = await canManageRose(requestingUser, roseId);
+   if (!hasPermission) {
+     res.status(403).json({ error: 'Nie masz uprawnień do wyświetlania członków tej Róży.' });
      return;
    }
 
-    // Sprawdź, czy Róża istnieje
-    const rose = await prisma.rose.findUnique({ where: { id: roseId } });
-    if (!rose) {
-      res.status(404).json({ error: 'Róża nie została znaleziona.' });
-      return;
-    }
+   const members = await prisma.roseMembership.findMany({
+     where: { roseId: roseId },
+     include: {
+       user: {
+         select: { id: true, email: true, name: true, role: true },
+       },
+     },
+     orderBy: {
+        createdAt: 'asc'
+     }
+   });
 
-    // Zelator może listować członków tylko swojej Róży
-    // Admin może listować członków dowolnej Róży (dla celów administracyjnych)
-    if (req.user?.role !== UserRole.ADMIN && rose.zelatorId !== requestingUserId) {
-      res.status(403).json({ error: 'Nie masz uprawnień do wyświetlania członków tej Róży.' });
-      return;
-    }
+   res.json(members);
 
-    const members = await prisma.roseMembership.findMany({
-      where: { roseId: roseId },
-      include: {
-        user: { // Dołącz dane użytkownika (członka)
-          select: { id: true, email: true, name: true, role: true },
-        },
-      },
-      orderBy: {
-         createdAt: 'asc' // Sortuj np. po dacie dołączenia
-      }
-    });
-
-    res.json(members);
-
-  } catch (error) {
-    next(error);
-  }
+ } catch (error) {
+   next(error);
+ }
 };

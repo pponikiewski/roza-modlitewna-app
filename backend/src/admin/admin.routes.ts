@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { updateUserRole, createRose, listRoses } from './admin.controller';
 import { authenticateToken, isAdmin } from '../auth/auth.middleware';
+import {triggerMysteryAssignment } from './admin.controller';
 
 const router = Router();
 
@@ -27,5 +28,12 @@ router.get(
   isAdmin,
   listRoses
 );
+
+  router.post(
+    '/trigger-mystery-assignment',
+    authenticateToken,
+    isAdmin,
+    triggerMysteryAssignment
+  );
 
 export default router;
