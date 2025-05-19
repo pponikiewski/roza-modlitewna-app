@@ -2,12 +2,10 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import prisma from '../db';
-import { findMysteryById, RosaryMystery } from '../utils/constants'; // Importujemy definicję tajemnic i funkcję pomocniczą
+import { findMysteryById } from '../utils/constants'; // Zakładam, że RosaryMysteryDetails jest tam też lub nie jest potrzebne do importu tutaj
+// Jeśli RosaryMysteryDetails jest potrzebne jako typ, zaimportuj:
+// import { RosaryMysteryDetails } from '../constants';
 
-// Wyświetlanie informacji o aktualnie przydzielonej tajemnicy dla zalogowanego użytkownika
-// (zakładamy, że użytkownik może być w wielu Różach - na razie wyświetlimy dla pierwszej znalezionej lub można by wymagać ID Róży)
-// UPROSZCZENIE: Na razie zakładamy, że użytkownik jest w JEDNEJ Róży, lub chcemy info z pierwszego członkostwa.
-// W przyszłości można rozbudować, aby użytkownik wybierał, dla której Róży chce zobaczyć info.
 export const getCurrentMysteryInfo = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userId = req.user?.userId;
@@ -17,12 +15,11 @@ export const getCurrentMysteryInfo = async (req: AuthenticatedRequest, res: Resp
     }
 
     // Znajdź aktywne członkostwo użytkownika
-    // TODO: Jeśli użytkownik może być w wielu Różach, potrzebujemy sposobu na identyfikację, o którą Różę chodzi.
-    // Na razie bierzemy pierwsze znalezione aktywne członkostwo.
+    // UPROSZCZENIE: Bierzemy pierwsze znalezione aktywne członkostwo.
     const membership = await prisma.roseMembership.findFirst({
-      where: { userId: userId }, // Można dodać warunek na aktywną Różę, jeśli taki status będzie
+      where: { userId: userId },
       include: {
-        rose: { select: { name: true } } // Dołącz nazwę Róży
+        rose: { select: { name: true } }
       }
     });
 
@@ -31,26 +28,27 @@ export const getCurrentMysteryInfo = async (req: AuthenticatedRequest, res: Resp
       return;
     }
 
-    if (!membership.currentAssignedMystery) {
-      res.status(200).json({ 
-         message: 'Nie masz jeszcze przydzielonej tajemnicy w tej Róży.',
-         roseName: membership.rose.name,
-         membershipId: membership.id 
-     });
-      return;
-    }
+    // Jeśli nie ma przydzielonej tajemnicy, mysteryDetails będzie null
+    const mysteryDetails = membership.currentAssignedMystery ? findMysteryById(membership.currentAssignedMystery) : null;
 
-    const mysteryDetails = findMysteryById(membership.currentAssignedMystery);
-    if (!mysteryDetails) {
-      console.error(`Nie znaleziono szczegółów dla tajemnicy o ID: ${membership.currentAssignedMystery}`);
-      res.status(500).json({ error: 'Błąd podczas pobierania szczegółów tajemnicy.' });
+    // Sytuacja błędu: ID tajemnicy jest w bazie, ale nie ma jej w constants.ts (np. po zmianie constants)
+    if (membership.currentAssignedMystery && !mysteryDetails) {
+      console.error(`Nie znaleziono szczegółów dla tajemnicy o ID: ${membership.currentAssignedMystery} w członkostwiem ${membership.id}. Sprawdź spójność danych w constants.ts.`);
+      // Zwracamy tak, jakby tajemnicy nie było, aby frontend nie próbował renderować czegoś, czego nie ma.
+      // Frontend powinien obsłużyć przypadek, gdy mystery jest null.
+      res.json({
+        membershipId: membership.id,
+        roseName: membership.rose.name,
+        mystery: null, // Kluczowe: zwracamy null, jeśli nie ma szczegółów
+        confirmedAt: membership.mysteryConfirmedAt,
+      });
       return;
     }
     
     res.json({
       membershipId: membership.id,
       roseName: membership.rose.name,
-      mystery: mysteryDetails, // Pełny obiekt tajemnicy (name, contemplation, imageUrl)
+      mystery: mysteryDetails, // mysteryDetails będzie null, jeśli currentAssignedMystery jest null lub nie znaleziono w constants
       confirmedAt: membership.mysteryConfirmedAt,
     });
 
@@ -59,13 +57,10 @@ export const getCurrentMysteryInfo = async (req: AuthenticatedRequest, res: Resp
   }
 };
 
-// Potwierdzanie zapoznania się z tajemnicą
 export const confirmMysteryRead = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    // Klient będzie musiał przesłać ID członkostwa, dla którego potwierdza tajemnicę,
-    // zwłaszcza jeśli użytkownik może być w wielu Różach.
-    const { membershipId } = req.params; // Pobieramy ID członkostwa z parametrów URL
+    const { membershipId } = req.params;
 
     if (!userId) {
       res.status(403).json({ error: 'Nie udało się zidentyfikować użytkownika.' });
@@ -76,7 +71,6 @@ export const confirmMysteryRead = async (req: AuthenticatedRequest, res: Respons
       where: { id: membershipId },
     });
 
-    // Sprawdź, czy członkostwo należy do zalogowanego użytkownika
     if (!membership || membership.userId !== userId) {
       res.status(403).json({ error: 'Nie masz uprawnień do potwierdzenia tej tajemnicy lub członkostwo nie istnieje.' });
       return;
@@ -87,9 +81,6 @@ export const confirmMysteryRead = async (req: AuthenticatedRequest, res: Respons
         return;
     }
     
-    // Można dodać logikę, aby nie pozwalać na potwierdzenie, jeśli już potwierdzono,
-    // ale ponowne potwierdzenie po prostu nadpisze datę, co jest OK.
-
     const updatedMembership = await prisma.roseMembership.update({
       where: { id: membershipId },
       data: { mysteryConfirmedAt: new Date() },
@@ -101,14 +92,19 @@ export const confirmMysteryRead = async (req: AuthenticatedRequest, res: Respons
      }
     });
 
-    const mysteryDetails = findMysteryById(updatedMembership.currentAssignedMystery!);
+    // Upewnij się, że currentAssignedMystery nie jest null przed wywołaniem findMysteryById
+    const mysteryDetails = updatedMembership.currentAssignedMystery ? findMysteryById(updatedMembership.currentAssignedMystery) : null;
 
+    if (updatedMembership.currentAssignedMystery && !mysteryDetails) {
+        console.error(`Nie znaleziono szczegółów dla potwierdzonej tajemnicy o ID: ${updatedMembership.currentAssignedMystery} (członkostwo ${membershipId})`);
+        // Mimo to wyślij odpowiedź, ale frontend może mieć problem z wyświetleniem detali tajemnicy
+    }
 
     res.json({ 
         message: 'Zapoznanie z tajemnicą zostało potwierdzone.', 
         membershipId: updatedMembership.id,
         roseName: updatedMembership.rose.name,
-        mystery: mysteryDetails,
+        mystery: mysteryDetails, // Może być null, jeśli coś poszło nie tak z ID
         confirmedAt: updatedMembership.mysteryConfirmedAt
      });
 
@@ -117,18 +113,16 @@ export const confirmMysteryRead = async (req: AuthenticatedRequest, res: Respons
   }
 };
 
-// Wyświetlanie historii tajemnic dla zalogowanego użytkownika dla konkretnego członkostwa
 export const getMysteryHistory = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
      const userId = req.user?.userId;
-     const { membershipId } = req.params; // ID członkostwa z parametrów URL
+     const { membershipId } = req.params;
 
      if (!userId) {
          res.status(403).json({ error: 'Nie udało się zidentyfikować użytkownika.' });
          return;
      }
 
-     // Sprawdź, czy członkostwo należy do zalogowanego użytkownika
      const membership = await prisma.roseMembership.findUnique({
          where: { id: membershipId },
          select: { userId: true, rose: { select: { name: true } } }
@@ -141,15 +135,14 @@ export const getMysteryHistory = async (req: AuthenticatedRequest, res: Response
 
      const history = await prisma.assignedMysteryHistory.findMany({
          where: { membershipId: membershipId },
-         orderBy: { assignedAt: 'desc' }, // Najnowsze na górze
+         orderBy: { assignedAt: 'desc' },
      });
 
-     // Mapuj historię, aby dołączyć pełne dane tajemnicy
      const historyWithDetails = history.map(entry => {
          const mysteryDetails = findMysteryById(entry.mystery);
          return {
              ...entry,
-             mysteryDetails: mysteryDetails || { id: entry.mystery, name: 'Nieznana Tajemnica', group: 'Nieznana', contemplation: '', imageUrl: '' } // Fallback
+             mysteryDetails: mysteryDetails || { id: entry.mystery, name: `Nieznana Tajemnica (ID: ${entry.mystery})`, group: 'Nieznana', contemplation: '', imageUrl: '' }
          };
      });
 
