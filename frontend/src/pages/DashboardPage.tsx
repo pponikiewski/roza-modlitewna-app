@@ -6,7 +6,7 @@ import type { CurrentMysteryInfo, MysteryHistoryResponse, MysteryHistoryEntry, U
 import { Link as RouterLink } from 'react-router-dom';
 
 const DashboardPage: React.FC = () => {
-  const { user, logout } = useAuth(); // Pobieramy usera i funkcję logout z kontekstu
+  const { user } = useAuth(); // Pobieramy usera i funkcję logout z kontekstu
 
   // Stan dla informacji o "głównej" lub pierwszej tajemnicy (może być później usunięty lub zmieniony)
   const [currentMysteryInfo, setCurrentMysteryInfo] = useState<CurrentMysteryInfo | null>(null);
@@ -150,12 +150,6 @@ const DashboardPage: React.FC = () => {
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2 sm:mb-0">
             Witaj, {user.name || user.email}!
           </h1>
-          <button
-            onClick={logout}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md shadow hover:bg-red-700 focus:ring-2 focus:ring-red-500"
-          >
-            Wyloguj
-          </button>
         </div>
 
         {membershipsError && <p className="mb-4 p-3 text-red-700 bg-red-100 border border-red-300 rounded-md">{membershipsError}</p>}
