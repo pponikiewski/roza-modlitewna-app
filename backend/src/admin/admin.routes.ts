@@ -5,10 +5,12 @@ import {
     updateUserRole, 
     createRose, 
     listRoses, 
-    triggerMysteryAssignment // Dodaj ten import
+    triggerMysteryAssignment, // Dodaj ten import
+    getRoseDetails // <<<< DODAJ IMPORT
 } from './admin.controller';
-import { authenticateToken, isAdmin } from '../auth/auth.middleware';
+import { authenticateToken, isAdmin, authorizeRole  } from '../auth/auth.middleware';
 // UserRole nie jest bezpośrednio potrzebny w tym pliku, jeśli używamy isAdmin
+import { UserRole } from '../types/user.types'; // Dodaj, jeśli potrzebne
 
 const router = Router();
 
@@ -41,6 +43,15 @@ router.post(
   authenticateToken,
   isAdmin,
   triggerMysteryAssignment
+);
+
+// NOWA TRASA: Pobieranie szczegółów pojedynczej Róży
+router.get(
+  '/roses/:roseId', // Ta trasa już mogła istnieć, jeśli nie, dodaj ją
+  authenticateToken,
+  // Dostęp dla Admina LUB Zelatora (logika sprawdzająca, czy to Zelator *tej* Róży jest w kontrolerze)
+  authorizeRole([UserRole.ADMIN, UserRole.ZELATOR]), 
+  getRoseDetails
 );
 
 export default router;

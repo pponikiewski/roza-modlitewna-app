@@ -182,3 +182,47 @@ export const triggerMysteryAssignment = async (req: AuthenticatedRequest, res: R
     next(error);
   }
 };
+
+// NOWA LUB ZMODYFIKOWANA FUNKCJA: Pobieranie szczegółów pojedynczej Róży
+export const getRoseDetails = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { roseId } = req.params;
+  const requestingUser = req.user;
+
+  console.log(`[getRoseDetails] Użytkownik ${requestingUser?.email} próbuje pobrać szczegóły Róży ${roseId}`);
+  try {
+    if (!requestingUser) {
+      res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
+      return;
+    }
+
+    const rose = await prisma.rose.findUnique({
+      where: { id: roseId },
+      include: {
+        zelator: {
+          select: { id: true, name: true, email: true, role: true }
+        },
+        _count: {
+          select: { members: true }
+        }
+      }
+    });
+
+    if (!rose) {
+      res.status(404).json({ error: 'Róża o podanym ID nie została znaleziona.' });
+      return;
+    }
+
+    // Sprawdzenie uprawnień: Admin może zobaczyć każdą Różę, Zelator tylko swoją
+    if (requestingUser.role !== UserRole.ADMIN && rose.zelatorId !== requestingUser.userId) {
+      res.status(403).json({ error: 'Nie masz uprawnień do wyświetlenia szczegółów tej Róży.' });
+      return;
+    }
+
+    console.log(`[getRoseDetails] Pomyślnie pobrano szczegóły Róży ${roseId}.`);
+    res.json(rose);
+
+  } catch (error) {
+    console.error(`[getRoseDetails] Błąd podczas pobierania szczegółów Róży ${roseId}:`, error);
+    next(error);
+  }
+};
