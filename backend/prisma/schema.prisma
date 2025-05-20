@@ -33,8 +33,10 @@ model Rose {
   zelator   User   @relation(fields: [zelatorId], references: [id])
 
   members RoseMembership[]
-  // Można dodać pole na "rotationOffset" dla zaawansowanej rotacji
-  // rotationOffset Int @default(0)
+
+  // NOWE POLE: Offset rotacji dla tej Róży (0 do 19)
+  // Będzie inkrementowany co miesiąc.
+  currentRotationOffset Int @default(0) 
 }
 
 model RoseMembership {
