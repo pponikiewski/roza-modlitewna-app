@@ -7,7 +7,8 @@ import {
     listRoses, 
     triggerMysteryAssignment, // Dodaj ten import
     getRoseDetails,
-    updateRoseDetails  // <<<< DODAJ IMPORT
+    updateRoseDetails,
+    triggerMysteryAssignmentForSpecificRose   // <<<< DODAJ IMPORT
 } from './admin.controller';
 import { authenticateToken, isAdmin, authorizeRole  } from '../auth/auth.middleware';
 // UserRole nie jest bezpośrednio potrzebny w tym pliku, jeśli używamy isAdmin
@@ -44,6 +45,14 @@ router.post(
   authenticateToken,
   isAdmin,
   triggerMysteryAssignment
+);
+
+// NOWA TRASA: Ręczne uruchomienie przydzielania tajemnic dla KONKRETNEJ Róży
+router.post(
+  '/roses/:roseId/trigger-mystery-assignment',
+  authenticateToken,
+  isAdmin,
+  triggerMysteryAssignmentForSpecificRose
 );
 
 // NOWA TRASA: Pobieranie szczegółów pojedynczej Róży

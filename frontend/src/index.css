@@ -2,3 +2,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Dodaj ten reset, jeśli go nie masz */
+html, body, #root {
+  height: 100%; /* Ważne dla poprawnego działania min-h-screen w niektórych przypadkach */
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box; /* Dobra praktyka */
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}

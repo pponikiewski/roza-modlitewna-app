@@ -9,8 +9,8 @@ import ManagedRoseDetailsPage from './pages/ManagedRoseDetailsPage';
 import AdminPanelPage from './pages/AdminPanelPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminRosesPage from './pages/AdminRosesPage';
-import { useAuth } from "./contexts/AuthContext"; // Importujemy useAuth do pobrania logout i user
-import { UserRoles, type UserRole } from './types/user.types'; // Upewnij się, że ścieżka jest poprawna
+import { useAuth } from "./contexts/AuthContext";
+import { UserRoles, type UserRole } from './types/user.types';
 
 // Komponent chronionej trasy
 const ProtectedRoute: React.FC<{ children: React.ReactElement; allowedRoles?: UserRole[] }> = ({ children, allowedRoles }) => {
@@ -41,7 +41,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement; allowedRoles?: Us
   return children;
 };
 
-
 // Komponent dla stron publicznych
 const PublicRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { token, isLoading } = useAuth();
@@ -56,9 +55,8 @@ const PublicRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =
   return children;
 };
 
-
 function App() {
-  const { isLoading, user, logout } = useAuth(); // Pobieramy logout i user z AuthContext
+  const { isLoading, user, logout } = useAuth();
 
   if (isLoading) {
     return (
@@ -68,30 +66,29 @@ function App() {
     );
   }
 
+  // Ustaw tę klasę na podstawie rzeczywistej wysokości swojego navbara.
+  // np. jeśli nav ma wysokość 4rem (64px), Tailwind klasa to 'pt-16'.
+  // Jeśli nav ma p-4 (1rem paddingu góra/dół) i tekst jednoliniowy, może to być ~3.5rem (h-14 -> pt-14)
+  const navbarPaddingTopClass = "pt-16"; // Przykładowa wartość, dostosuj!
+
   return (
-    <>
-     {user && ( // Wyświetl nawigację tylko jeśli użytkownik jest zalogowany
-       <nav className="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50">
+    <div className="flex flex-col min-h-screen bg-gray-50"> {/* Tło dla całej aplikacji, jeśli main nie pokrywa */}
+     {user && (
+       <nav className="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50 shrink-0">
          <div className="container mx-auto flex flex-wrap justify-between items-center">
-           {/* Lewa strona nawigacji - Nazwa aplikacji/link do dashboardu */}
            <RouterLink to="/dashboard" className="text-xl font-semibold hover:text-indigo-200 mb-2 sm:mb-0">
              Róża Modlitewna
            </RouterLink>
-           
-           {/* Prawa strona nawigacji - Linki i przycisk wylogowania */}
            <div className="flex flex-wrap items-center space-x-2 sm:space-x-4 text-sm">
              <RouterLink to="/dashboard" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Panel Użytkownika</RouterLink>
-             
              {(user.role === UserRoles.ZELATOR || user.role === UserRoles.ADMIN) && (
                <RouterLink to="/zelator-dashboard" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Panel Zelatora</RouterLink>
              )}
              {user.role === UserRoles.ADMIN && (
                <RouterLink to="/admin-panel" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Panel Admina</RouterLink>
              )}
-
-             {/* Przycisk Wyloguj */}
              <button
-               onClick={logout} // Użyj funkcji logout z AuthContext
+               onClick={logout}
                className="px-3 py-2 rounded-md bg-red-500 hover:bg-red-600 transition-colors text-xs font-medium"
              >
                Wyloguj ({user.email})
@@ -101,11 +98,10 @@ function App() {
        </nav>
      )}
 
-     {/* Dodajemy padding-top do main, jeśli navbar jest widoczny i sticky, aby treść nie była zakryta */}
-     {/* Wysokość pt-16 (padding-top: 4rem; // 64px) jest przykładowa, dostosuj do wysokości swojego navbara */}
-     <main className={user ? "pt-16" : ""}> 
+     {/* `flex-grow` sprawia, że main wypełnia dostępną przestrzeń w kontenerze flex `App` */}
+     {/* Padding jest dodawany tylko jeśli nav jest sticky, aby treść nie była zakryta */}
+     <main className={`flex-grow ${user && document.querySelector('nav')?.classList.contains('sticky') ? navbarPaddingTopClass : ""}`}>
       <Routes>
-        {/* Domyślna trasa */}
         <Route 
             path="/" 
             element={
@@ -114,12 +110,8 @@ function App() {
                 </ProtectedRoute>
             } 
         />
-        
-        {/* Trasy publiczne */}
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
-        
-        {/* Trasy dla zalogowanego użytkownika (MEMBER, ZELATOR, ADMIN) */}
         <Route 
             path="/dashboard" 
             element={
@@ -128,8 +120,6 @@ function App() {
                 </ProtectedRoute>
             } 
         />
-        
-        {/* Trasy dla Zelatora (i Admina) */}
         <Route 
           path="/zelator-dashboard" 
           element={
@@ -146,8 +136,6 @@ function App() {
             </ProtectedRoute>
           } 
         />
-
-        {/* Trasy dla Admina (z zagnieżdżonym routingiem) */}
         <Route 
           path="/admin-panel" 
           element={
@@ -160,10 +148,8 @@ function App() {
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="roses" element={<AdminRosesPage />} />
         </Route>
-
-        {/* Strona 404 - łapie wszystkie inne niepasujące ścieżki */}
         <Route path="*" element={
-              <div className="flex flex-col items-center justify-center min-h-screen py-10">
+              <div className="flex flex-col items-center justify-center flex-grow h-full py-10"> {/* h-full, aby wypełnić <main> */}
                   <h1 className="text-6xl font-bold text-red-500 mb-4">404</h1>
                   <p className="text-2xl text-gray-700 mb-6">Strona nie została znaleziona.</p>
                   <RouterLink to="/" className="px-6 py-3 text-lg font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
@@ -173,7 +159,7 @@ function App() {
             } />
       </Routes>
      </main>
-    </>
+    </div>
   );
 }
 

@@ -3,7 +3,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware'; // Upewnij się, że ścieżka jest poprawna
 import prisma from '../db'; // Upewnij się, że ścieżka jest poprawna
 import { UserRole } from '../types/user.types'; // Upewnij się, że ścieżka jest poprawna
-import { assignMysteriesToAllRoses } from '../services/rosary.service'; // Poprawiona ścieżka
+import { assignMysteriesToAllRoses, assignAndRotateMysteriesForRose } from '../services/rosary.service'; // Poprawiona ścieżka
 
 const ALLOWED_ROLES_TO_ASSIGN: UserRole[] = [UserRole.MEMBER, UserRole.ZELATOR];
 
@@ -302,6 +302,36 @@ export const updateRoseDetails = async (req: AuthenticatedRequest, res: Response
 
   } catch (error) {
     console.error(`[updateRoseDetails] Błąd podczas aktualizacji Róży ${roseId}:`, error);
+    next(error);
+  }
+};
+
+export const triggerMysteryAssignmentForSpecificRose = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { roseId } = req.params;
+  const adminUser = req.user;
+
+  console.log(`[triggerMysteryAssignmentForSpecificRose] Admin ${adminUser?.email} inicjuje przydzielanie tajemnic dla Róży ${roseId}.`);
+  try {
+    if (adminUser?.role !== UserRole.ADMIN) {
+      res.status(403).json({ error: 'Brak uprawnień administratora.' });
+      return;
+    }
+
+    // Sprawdź, czy Róża istnieje
+    const roseExists = await prisma.rose.findUnique({ where: { id: roseId } });
+    if (!roseExists) {
+      res.status(404).json({ error: `Róża o ID ${roseId} nie została znaleziona.` });
+      return;
+    }
+
+    // Uruchomienie logiki w tle dla konkretnej Róży
+    assignAndRotateMysteriesForRose(roseId).catch(err => {
+      console.error(`Błąd podczas asynchronicznego przydzielania tajemnic dla Róży ${roseId} (wywołane przez admina):`, err);
+    });
+
+    res.status(202).json({ message: `Proces przydzielania tajemnic dla Róży "${roseExists.name}" (ID: ${roseId}) został zainicjowany w tle.` });
+  } catch (error) {
+    console.error(`[triggerMysteryAssignmentForSpecificRose] Błąd w głównym bloku try-catch dla Róży ${roseId}:`, error);
     next(error);
   }
 };
