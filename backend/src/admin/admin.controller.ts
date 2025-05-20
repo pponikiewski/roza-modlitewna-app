@@ -226,3 +226,82 @@ export const getRoseDetails = async (req: AuthenticatedRequest, res: Response, n
     next(error);
   }
 };
+
+export const updateRoseDetails = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { roseId } = req.params;
+  const { name, description, zelatorId } = req.body; // Admin może zmienić nazwę, opis, Zelatora
+  const adminUser = req.user;
+
+  console.log(`[updateRoseDetails] Admin ${adminUser?.email} próbuje zaktualizować Różę ${roseId}. Dane: ${JSON.stringify(req.body)}`);
+  try {
+    if (adminUser?.role !== UserRole.ADMIN) {
+      res.status(403).json({ error: 'Brak uprawnień administratora.' });
+      return;
+    }
+
+    // Podstawowa walidacja - nazwa jest wymagana
+    if (typeof name === 'string' && name.trim() === '') {
+      res.status(400).json({ error: 'Nazwa Róży nie może być pusta.' });
+      return;
+    }
+
+    // Sprawdź, czy Róża istnieje
+    const existingRose = await prisma.rose.findUnique({ where: { id: roseId } });
+    if (!existingRose) {
+      res.status(404).json({ error: 'Róża o podanym ID nie została znaleziona.' });
+      return;
+    }
+
+    const dataToUpdate: { name?: string; description?: string | null; zelatorId?: string } = {};
+
+    if (name !== undefined) {
+      dataToUpdate.name = name;
+    }
+    if (description !== undefined) { // Pozwól na ustawienie pustego opisu lub null
+      dataToUpdate.description = description;
+    }
+
+    // Jeśli przekazano zelatorId, zwaliduj go
+    if (zelatorId !== undefined) {
+      if (zelatorId === null || zelatorId === '') { // Jeśli chcemy usunąć zelatora (choć model tego wymaga)
+        // W obecnym modelu Rose.zelatorId nie jest opcjonalne.
+        // Aby usunąć Zelatora, trzeba by zmienić logikę/model lub przypisać innego.
+        // Na razie, jeśli zelatorId jest pusty, uznajemy to za błąd, bo model wymaga.
+         res.status(400).json({ error: 'ID Zelatora jest wymagane i nie może być puste.' });
+         return;
+      }
+
+      const newZelatorUser = await prisma.user.findUnique({ where: { id: zelatorId } });
+      if (!newZelatorUser) {
+        res.status(404).json({ error: `Użytkownik (potencjalny Zelator) o ID ${zelatorId} nie został znaleziony.` });
+        return;
+      }
+      if (newZelatorUser.role !== UserRole.ZELATOR && newZelatorUser.role !== UserRole.ADMIN) {
+        res.status(400).json({ error: `Użytkownik o ID ${zelatorId} nie ma roli ZELATOR ani ADMIN. Zmień najpierw jego rolę.` });
+        return;
+      }
+      dataToUpdate.zelatorId = zelatorId;
+    }
+    
+    if (Object.keys(dataToUpdate).length === 0) {
+        res.status(400).json({ error: 'Nie podano żadnych danych do aktualizacji.' });
+        return;
+    }
+
+    const updatedRose = await prisma.rose.update({
+      where: { id: roseId },
+      data: dataToUpdate,
+      include: {
+        zelator: { select: { id: true, name: true, email: true, role: true } },
+        _count: { select: { members: true } }
+      }
+    });
+
+    console.log(`[updateRoseDetails] Pomyślnie zaktualizowano Różę ${roseId}.`);
+    res.json(updatedRose);
+
+  } catch (error) {
+    console.error(`[updateRoseDetails] Błąd podczas aktualizacji Róży ${roseId}:`, error);
+    next(error);
+  }
+};

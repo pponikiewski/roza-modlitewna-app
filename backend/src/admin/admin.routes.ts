@@ -6,7 +6,8 @@ import {
     createRose, 
     listRoses, 
     triggerMysteryAssignment, // Dodaj ten import
-    getRoseDetails // <<<< DODAJ IMPORT
+    getRoseDetails,
+    updateRoseDetails  // <<<< DODAJ IMPORT
 } from './admin.controller';
 import { authenticateToken, isAdmin, authorizeRole  } from '../auth/auth.middleware';
 // UserRole nie jest bezpośrednio potrzebny w tym pliku, jeśli używamy isAdmin
@@ -52,6 +53,13 @@ router.get(
   // Dostęp dla Admina LUB Zelatora (logika sprawdzająca, czy to Zelator *tej* Róży jest w kontrolerze)
   authorizeRole([UserRole.ADMIN, UserRole.ZELATOR]), 
   getRoseDetails
+);
+
+router.patch(
+  '/roses/:roseId', // Używamy PATCH, bo aktualizujemy część zasobu
+  authenticateToken,
+  isAdmin, // Tylko Admin może edytować dowolną Różę
+  updateRoseDetails
 );
 
 export default router;
