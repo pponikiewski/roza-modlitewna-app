@@ -129,7 +129,7 @@ const ManagedRoseDetailsPage: React.FC = () => {
 
   if (pageError) {
     return (
-        <div className="p-8 text-center min-h-screen flex flex-col justify-center items-center">
+        <div className="p-8 text-center flex flex-col justify-center items-center">
             <p className="text-red-600 bg-red-100 p-4 rounded-md mb-4 text-lg">{pageError}</p>
             <RouterLink to="/zelator-dashboard" className="px-5 py-2.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
                 ← Wróć do Panelu Zelatora
@@ -140,7 +140,7 @@ const ManagedRoseDetailsPage: React.FC = () => {
 
   if (!currentRose) {
     return ( // Ten stan nie powinien być często widoczny, jeśli pageError dobrze łapie 404
-        <div className="p-8 text-center min-h-screen flex flex-col justify-center items-center">
+        <div className="p-8 text-center flex flex-col justify-center items-center">
             <p className="text-gray-700 bg-yellow-100 p-4 rounded-md mb-4">Nie można załadować danych Róży o ID: {roseId}.</p>
             <RouterLink to="/zelator-dashboard" className="px-5 py-2.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
                 ← Wróć do Panelu Zelatora

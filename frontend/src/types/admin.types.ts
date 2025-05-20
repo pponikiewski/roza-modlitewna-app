@@ -1,39 +1,82 @@
 // frontend/src/types/admin.types.ts
 
-// Zaimportuj UserRole, jeśli go tu potrzebujesz (np. dla typu Zelatora)
-// Najlepiej, aby UserRole było zdefiniowane w jednym miejscu na frontendzie, np. frontend/src/types/user.types.ts
+// Zaimportuj UserRole, jeśli jest zdefiniowane w osobnym pliku na frontendzie
+// (np. frontend/src/types/user.types.ts)
 import type { UserRole } from './user.types'; 
 
-// Prosty typ użytkownika, np. do wyświetlania Zelatora na liście Róż
-export interface BasicUserAdminView {
-  id: string;
-  email: string;
-  name?: string | null;
-  role: UserRole; // Możemy chcieć widzieć rolę Zelatora
-}
+// --- Typy dla Zarządzania Użytkownikami ---
 
-// Typ dla elementu listy Róż, jak zwraca endpoint GET /admin/roses
-export interface RoseListItemAdmin {
-  id: string;
-  name: string;
-  description?: string | null;
-  createdAt: string; // Data jako string ISO
-  updatedAt: string; // Data jako string ISO
-  zelatorId: string;
-  zelator: BasicUserAdminView; // Dołączone dane Zelatora
-  _count: {
-    members: number; // Liczba członków
-  };
-}
-
-// Typ dla pełnych danych użytkownika, np. przy listowaniu wszystkich użytkowników przez Admina
-// (jeśli będziemy mieli taki endpoint i widok)
+// Typ dla użytkownika wyświetlanego na liście w panelu Admina
+// (odpowiednik danych zwracanych przez GET /users)
 export interface UserAdminView {
     id: string;
     email: string;
     name?: string | null;
-    role: UserRole;
-    createdAt: string;
-    updatedAt: string;
-    // można dodać inne pola, np. liczbę Róż, którymi zarządza, jeśli jest Zelatorem
+    role: UserRole; // Używamy typu UserRole dla spójności
+    createdAt: string; // Data jako string ISO
+    updatedAt: string; // Data jako string ISO
+    // Można dodać inne pola, jeśli backend je zwraca i są potrzebne Adminowi,
+    // np. informacje o ostatnim logowaniu, status konta itp.
+}
+
+// --- Typy dla Zarządzania Różami ---
+
+// Podstawowe informacje o Zelatorze (używane w kontekście Róży)
+// Może być taki sam jak BasicUserInfo w zelator.types.ts lub nieco inny
+export interface BasicZelatorAdminView {
+  id: string;
+  email: string;
+  name?: string | null;
+  role: UserRole; // Ważne, aby Admin widział rolę przypisanego Zelatora
+}
+
+// Typ dla Róży wyświetlanej na liście w panelu Admina
+// (odpowiednik danych zwracanych przez GET /admin/roses i GET /admin/roses/:roseId)
+export interface RoseListItemAdmin {
+  id: string;
+  name: string;
+  description?: string | null;
+  createdAt: string;    // Data jako string ISO
+  updatedAt: string;    // Data jako string ISO
+  zelatorId: string;
+  zelator: BasicZelatorAdminView; // Dołączone dane Zelatora
+  currentRotationOffset?: number; // Jeśli Admin ma widzieć/zarządzać offsetem rotacji
+  _count: {
+    members: number; // Liczba członków
+  };
+  // Można dodać inne pola specyficzne dla widoku Admina, jeśli API je zwraca
+  // np. status Róży (aktywna, nieaktywna), ostatnia data przydzielenia tajemnic itp.
+}
+
+// Typ dla danych wysyłanych przy tworzeniu nowej Róży przez Admina
+// (ciało żądania dla POST /admin/roses)
+export interface CreateRosePayload {
+  name: string;
+  description?: string;
+  zelatorId: string;
+}
+
+// Typ dla danych wysyłanych przy aktualizacji Róży przez Admina
+// (ciało żądania dla PATCH /admin/roses/:roseId)
+// Wszystkie pola są opcjonalne, bo aktualizujemy tylko te, które się zmieniły.
+export interface UpdateRosePayload {
+  name?: string;
+  description?: string | null; // Pozwalamy na usunięcie opisu przez przekazanie null lub pustego stringa
+  zelatorId?: string;
+  currentRotationOffset?: number; // Jeśli Admin może to edytować
+}
+
+// Typ dla odpowiedzi po udanej operacji (np. utworzeniu, aktualizacji)
+export interface AdminActionSuccessResponse {
+  message: string;
+  // Można dodać inne pola, np. ID zmodyfikowanego zasobu
+  // rose?: RoseListItemAdmin;
+  // user?: UserAdminView;
+}
+
+// Typ dla odpowiedzi błędu z API (ogólny)
+export interface ApiErrorResponse {
+  error: string;
+  // Można dodać inne pola, np. szczegóły błędu walidacji
+  // details?: any;
 }

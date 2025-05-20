@@ -3,14 +3,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Dodaj ten reset, jeśli go nie masz */
-html, body, #root {
-  height: 100%; /* Ważne dla poprawnego działania min-h-screen w niektórych przypadkach */
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box; /* Dobra praktyka */
+/* --- Dodaj lub zmodyfikuj te style --- */
+html,
+body,
+#root {
+  height: 100%; /* Umożliwia dzieciom używanie procentowej wysokości lub min-h-screen bardziej przewidywalnie */
+  margin: 0;   /* Reset domyślnych marginesów przeglądarki */
+  padding: 0;  /* Reset domyślnych paddingów przeglądarki */
 }
 
-*, *::before, *::after {
-  box-sizing: inherit;
+/* Opcjonalne, ale często pomocne: ustawienie body jako kontenera flex dla #root */
+body {
+  display: flex;
+  flex-direction: column;
 }
+
+/* #root powinien się rozciągnąć, aby wypełnić przestrzeń w body */
+#root {
+  flex-grow: 1;
+  display: flex;       /* Ustawiamy #root również jako kontener flex */
+  flex-direction: column; /* Aby jego dzieci (np. główny div z App.tsx) mogły się rozciągać */
+}
+/* --- Koniec dodanych/zmodyfikowanych stylów --- */

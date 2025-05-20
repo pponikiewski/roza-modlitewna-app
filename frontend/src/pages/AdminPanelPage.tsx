@@ -15,7 +15,7 @@ const AdminPanelPage: React.FC = () => {
   const isActive = (path: string) => location.pathname.includes(path);
 
   return (
-    <div className="p-4 md:p-8 bg-slate-100 min-h-screen">
+    <div className="p-4 md:p-8 bg-slate-100">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Panel Administratora</h1>
         

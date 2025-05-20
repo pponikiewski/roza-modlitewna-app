@@ -10,14 +10,15 @@ import AdminPanelPage from './pages/AdminPanelPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminRosesPage from './pages/AdminRosesPage';
 import { useAuth } from "./contexts/AuthContext";
-import { UserRoles, type UserRole } from './types/user.types';
+import { UserRoles, type UserRole } from './types/user.types'; // Upewnij się, że ten plik istnieje i poprawnie eksportuje typy/enumy
+
 
 // Komponent chronionej trasy
 const ProtectedRoute: React.FC<{ children: React.ReactElement; allowedRoles?: UserRole[] }> = ({ children, allowedRoles }) => {
   const { user, token, isLoading } = useAuth();
   
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen text-xl">Ładowanie sesji...</div>;
+    return <div className="flex flex-grow items-center justify-center text-xl">Ładowanie sesji...</div>; // flex-grow, aby zajął dostępną przestrzeń
   }
   
   if (!token || !user) {
@@ -26,7 +27,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement; allowedRoles?: Us
 
   if (allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
     return (
-      <div className="p-8 text-center min-h-screen flex flex-col justify-center items-center bg-gray-100">
+      <div className="p-8 text-center flex-grow flex flex-col justify-center items-center bg-gray-100">
         <h1 className="text-3xl font-bold text-red-600 mb-4">Brak Uprawnień</h1>
         <p className="text-gray-700 mb-6">Przepraszamy, nie masz wystarczających uprawnień, aby wyświetlić tę stronę.</p>
         <RouterLink 
@@ -38,43 +39,43 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement; allowedRoles?: Us
       </div>
     );
   }
-  return children;
+  return children; // Dziecko samo powinno zarządzać swoim rozciąganiem (np. flex-grow jeśli jest częścią flex layoutu)
 };
+
 
 // Komponent dla stron publicznych
 const PublicRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
   const { token, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen text-xl">Ładowanie sesji...</div>;
+    // flex-grow, aby zajął dostępną przestrzeń w głównym kontenerze flex
+    return <div className="flex flex-grow items-center justify-center text-xl">Ładowanie sesji...</div>;
   }
 
   if (token) {
     return <Navigate to="/dashboard" replace />;
   }
+  // Dziecko (np. LoginPage) samo zarządza swoim wyglądem (np. min-h-screen, jeśli ma zajmować cały ekran)
   return children;
 };
+
 
 function App() {
   const { isLoading, user, logout } = useAuth();
 
-  if (isLoading) {
+  if (isLoading && !user) { // Pokaż pełnoekranowe ładowanie tylko na początku, gdy nie ma jeszcze usera
     return (
-      <div className="flex items-center justify-center min-h-screen text-2xl font-semibold text-gray-700">
+      <div className="flex items-center justify-center min-h-screen text-2xl font-semibold text-gray-700 bg-slate-100">
         Ładowanie aplikacji Róży Modlitewnej...
       </div>
     );
   }
 
-  // Ustaw tę klasę na podstawie rzeczywistej wysokości swojego navbara.
-  // np. jeśli nav ma wysokość 4rem (64px), Tailwind klasa to 'pt-16'.
-  // Jeśli nav ma p-4 (1rem paddingu góra/dół) i tekst jednoliniowy, może to być ~3.5rem (h-14 -> pt-14)
-  const navbarPaddingTopClass = "pt-16"; // Przykładowa wartość, dostosuj!
-
+  // Główny kontener aplikacji
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50"> {/* Tło dla całej aplikacji, jeśli main nie pokrywa */}
-     {user && (
-       <nav className="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50 shrink-0">
+    <div className="flex flex-col min-h-screen bg-slate-100"> {/* Tło dla całej aplikacji, jeśli nie jest pokryte przez <main> */}
+     {user && ( // Wyświetl nawigację tylko jeśli użytkownik jest zalogowany
+       <nav className="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50 flex-shrink-0"> {/* flex-shrink-0 zapobiega kurczeniu się navbara */}
          <div className="container mx-auto flex flex-wrap justify-between items-center">
            <RouterLink to="/dashboard" className="text-xl font-semibold hover:text-indigo-200 mb-2 sm:mb-0">
              Róża Modlitewna
@@ -98,9 +99,10 @@ function App() {
        </nav>
      )}
 
-     {/* `flex-grow` sprawia, że main wypełnia dostępną przestrzeń w kontenerze flex `App` */}
-     {/* Padding jest dodawany tylko jeśli nav jest sticky, aby treść nie była zakryta */}
-     <main className={`flex-grow ${user && document.querySelector('nav')?.classList.contains('sticky') ? navbarPaddingTopClass : ""}`}>
+     {/* Główna treść strony - powinna się rozciągnąć */}
+     {/* Jeśli navbar jest sticky, nie potrzebujemy paddingu, jeśli <main> jest kontenerem flex i sam się rozciąga */}
+     {/* Jeśli <main> nie jest flex-grow w kontenerze flex, to padding jest potrzebny */}
+     <main className="flex-grow"> {/* flex-grow jest kluczowe, aby <main> wypełniło resztę przestrzeni */}
       <Routes>
         <Route 
             path="/" 
@@ -110,8 +112,10 @@ function App() {
                 </ProtectedRoute>
             } 
         />
+        
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+        
         <Route 
             path="/dashboard" 
             element={
@@ -120,6 +124,7 @@ function App() {
                 </ProtectedRoute>
             } 
         />
+        
         <Route 
           path="/zelator-dashboard" 
           element={
@@ -136,6 +141,7 @@ function App() {
             </ProtectedRoute>
           } 
         />
+
         <Route 
           path="/admin-panel" 
           element={
@@ -148,8 +154,9 @@ function App() {
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="roses" element={<AdminRosesPage />} />
         </Route>
+
         <Route path="*" element={
-              <div className="flex flex-col items-center justify-center flex-grow h-full py-10"> {/* h-full, aby wypełnić <main> */}
+              <div className="flex flex-grow flex-col items-center justify-center py-10"> {/* flex-grow tutaj, jeśli to jedyny element w main */}
                   <h1 className="text-6xl font-bold text-red-500 mb-4">404</h1>
                   <p className="text-2xl text-gray-700 mb-6">Strona nie została znaleziona.</p>
                   <RouterLink to="/" className="px-6 py-3 text-lg font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
@@ -159,6 +166,8 @@ function App() {
             } />
       </Routes>
      </main>
+     {/* Można dodać globalną stopkę tutaj, jeśli potrzebna */}
+     {/* <footer className="bg-gray-200 text-center p-4 text-sm text-gray-600 flex-shrink-0">Stopka aplikacji</footer> */}
     </div>
   );
 }
