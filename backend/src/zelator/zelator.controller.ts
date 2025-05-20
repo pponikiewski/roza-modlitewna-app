@@ -3,7 +3,13 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import prisma from '../db';
 import { UserRole } from '../types/user.types';
+import { MAX_ROSE_MEMBERS } from '../utils/constants'; // Import stałej
 
+/**
+ * Funkcja pomocnicza sprawdzająca, czy użytkownik ma uprawnienia do zarządzania daną Różą
+ * (jest jej Zelatorem LUB jest Adminem).
+ * Zakłada, że `requestingUser` nie jest null/undefined, co powinno być zapewnione przez wywołującego.
+ */
 async function canManageRose(requestingUser: NonNullable<AuthenticatedRequest['user']>, roseId: string): Promise<boolean> {
   if (requestingUser.role === UserRole.ADMIN) {
     console.log(`[canManageRose] Użytkownik ${requestingUser.email} jest ADMINEM, ma dostęp do Róży ${roseId}.`);
@@ -34,7 +40,7 @@ export const addMemberToRose = async (req: AuthenticatedRequest, res: Response, 
     const { roseId } = req.params;
     const { userIdToAdd } = req.body;
     
-    if (!req.user) { // Sprawdzenie, czy obiekt użytkownika istnieje
+    if (!req.user) {
       res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
       return;
     }
@@ -62,6 +68,16 @@ export const addMemberToRose = async (req: AuthenticatedRequest, res: Response, 
       res.status(404).json({ error: 'Użytkownik, którego próbujesz dodać, nie istnieje.' });
       return;
     }
+        
+    // SPRAWDZENIE LICZBY CZŁONKÓW
+    const memberCount = await prisma.roseMembership.count({
+      where: { roseId: roseId },
+    });
+
+    if (memberCount >= MAX_ROSE_MEMBERS) {
+      res.status(400).json({ error: `Róża osiągnęła maksymalną liczbę członków (${MAX_ROSE_MEMBERS}).` });
+      return;
+    }
     
     const existingMembership = await prisma.roseMembership.findUnique({
       where: { userId_roseId: { userId: userIdToAdd, roseId: roseId } },
@@ -72,17 +88,22 @@ export const addMemberToRose = async (req: AuthenticatedRequest, res: Response, 
       return;
     }
 
+    // Ustawienie mysteryOrderIndex - jako aktualna liczba członków (co da indeksy 0, 1, 2...)
+    const currentOrderIndex = memberCount; 
+
     const newMembership = await prisma.roseMembership.create({
       data: {
         user: { connect: { id: userIdToAdd } },
         rose: { connect: { id: roseId } },
+        mysteryOrderIndex: currentOrderIndex, // Przypisz kolejny indeks
+        // currentAssignedMystery i mysteryConfirmedAt będą domyślnie null
       },
       include: {
          user: { select: { id: true, email: true, name: true, role: true } }
       }
     });
 
-    console.log(`[addMemberToRose] Pomyślnie dodano użytkownika ${userIdToAdd} do Róży ${roseId}.`);
+    console.log(`[addMemberToRose] Pomyślnie dodano użytkownika ${userIdToAdd} do Róży ${roseId} z indeksem ${currentOrderIndex}.`);
     res.status(201).json({ message: 'Użytkownik został dodany do Róży.', membership: newMembership });
 
   } catch (error) {
@@ -120,13 +141,14 @@ export const listRoseMembers = async (req: AuthenticatedRequest, res: Response, 
         user: {
           select: { id: true, email: true, name: true, role: true },
         },
-        // Można rozważyć dołączenie `currentAssignedMystery` i `mysteryConfirmedAt`
-        // currentAssignedMystery: true, 
-        // mysteryConfirmedAt: true,
+        // Dołączamy pola związane z tajemnicami, aby Zelator mógł je widzieć
+        // currentAssignedMystery: true, // jest już w modelu RoseMembership
+        // mysteryConfirmedAt: true,   // jest już w modelu RoseMembership
       },
-      orderBy: {
-         user: { name: 'asc' } 
-      }
+      orderBy: [ // Sortuj najpierw po mysteryOrderIndex (jeśli istnieje), potem po dacie dołączenia
+        { mysteryOrderIndex: 'asc' },
+        { createdAt: 'asc' }
+      ]
     });
 
     console.log(`[listRoseMembers] Znaleziono ${members.length} członków dla Róży ${roseId}.`);
@@ -165,7 +187,7 @@ export const getMyManagedRoses = async (req: AuthenticatedRequest, res: Response
         where: { zelatorId: userId },
         include: {
           _count: { select: { members: true } },
-          zelator: { select: { id: true, email: true, name: true } }
+          zelator: { select: { id: true, email: true, name: true } } // Zelator i tak jest znany, ale dla spójności API
         },
         orderBy: { name: 'asc' }
       });
@@ -183,7 +205,6 @@ export const getMyManagedRoses = async (req: AuthenticatedRequest, res: Response
   }
 };
 
-// NOWA FUNKCJA: Usuwanie członka z Róży
 export const removeMemberFromRose = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   console.log(`[removeMemberFromRose] Próba usunięcia członkostwa. User: ${req.user?.email}. Params: ${JSON.stringify(req.params)}`);
   try {
@@ -222,11 +243,13 @@ export const removeMemberFromRose = async (req: AuthenticatedRequest, res: Respo
       return;
     }
 
-    // Usuwanie członkostwa (dzięki onDelete: Cascade w schemacie Prisma,
-    // powiązane wpisy w AssignedMysteryHistory zostaną usunięte automatycznie)
     await prisma.roseMembership.delete({
       where: { id: membershipId },
     });
+    // TODO: Po usunięciu członka, mysteryOrderIndex pozostałych członków w tej Róży może wymagać aktualizacji,
+    // aby nie było "dziur" w numeracji, jeśli chcemy utrzymać ścisłą kolejność 0..N-1.
+    // To bardziej zaawansowana logika, np. transakcja, która przesuwa indeksy.
+    // Na razie pomijamy ten krok.
 
     console.log(`[removeMemberFromRose] Pomyślnie usunięto członkostwo ${membershipId} z Róży ${roseId}.`);
     res.status(200).json({ message: 'Członek został pomyślnie usunięty z Róży.' });

@@ -14,7 +14,7 @@ model User {
   email     String   @unique
   name      String?
   password  String
-  role      String   @default("MEMBER") // ADMIN, ZELATOR, MEMBER
+  role      String   @default("MEMBER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -33,9 +33,8 @@ model Rose {
   zelator   User   @relation(fields: [zelatorId], references: [id])
 
   members RoseMembership[]
-  // Możemy dodać pole na intencję główną, np.
-  // currentIntention String?
-  // currentIntentionSetAt DateTime?
+  // Można dodać pole na "rotationOffset" dla zaawansowanej rotacji
+  // rotationOffset Int @default(0)
 }
 
 model RoseMembership {
@@ -45,32 +44,30 @@ model RoseMembership {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Aktualnie przydzielona tajemnica - nadal tu jest dla szybkiego dostępu
   currentAssignedMystery String?
   mysteryConfirmedAt     DateTime?
+  
+  // NOWE/ZAKTUALIZOWANE OPCJONALNE POLE:
+  mysteryOrderIndex      Int? // Pozycja członka w Róży (0-19) dla rotacji tajemnic
 
   user User @relation(fields: [userId], references: [id])
   rose Rose @relation(fields: [roseId], references: [id])
 
-  // Relacja do historii przydzielonych tajemnic
   mysteryHistory AssignedMysteryHistory[]
 
   @@unique([userId, roseId])
+  @@index([roseId, mysteryOrderIndex]) // Opcjonalny indeks
 }
 
-// NOWY MODEL: Historia przydzielonych tajemnic
 model AssignedMysteryHistory {
   id            String   @id @default(cuid())
-  membershipId  String   // Powiązanie z konkretnym członkostwem w Róży
-  mystery       String   // Nazwa przydzielonej tajemnicy
-  assignedMonth Int      // Miesiąc przydziału (1-12)
-  assignedYear  Int      // Rok przydziału
-  assignedAt    DateTime @default(now()) // Dokładna data i czas przydziału
+  membershipId  String
+  mystery       String
+  assignedMonth Int
+  assignedYear  Int
+  assignedAt    DateTime @default(now())
 
-  membership RoseMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade) // Jeśli usuniemy członkostwo, usuń też historię
+  membership RoseMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
-  // Indeks dla szybszego wyszukiwania historii dla danego członkostwa
   @@index([membershipId])
-  // Opcjonalnie, unikalność dla danego członkostwa, tajemnicy i miesiąca/roku, jeśli chcemy zapobiec duplikatom
-  // @@unique([membershipId, mystery, assignedMonth, assignedYear])
 }

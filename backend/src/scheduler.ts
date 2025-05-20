@@ -1,6 +1,6 @@
 // backend/src/scheduler.ts
 import cron from 'node-cron';
-import { assignMysteriesToAllActiveMembers } from './services/rosary.service';
+import { assignMysteriesToAllRoses } from './services/rosary.service'; // Zmieniony import
 
 function isFirstSundayOfMonth(): boolean {
   const today = new Date();
@@ -12,33 +12,25 @@ function isFirstSundayOfMonth(): boolean {
 
 export function startScheduler(): void {
   console.log('Scheduler zainicjowany.');
-  // console.log('Test isFirstSundayOfMonth():', isFirstSundayOfMonth()); // Możesz zostawić do testów
+  // console.log('Test isFirstSundayOfMonth():', isFirstSundayOfMonth()); // Do testów
 
-  // Definiowanie zadania cron
   const task = cron.schedule('0 1 * * *', async () => { // Harmonogram: o 01:00 każdego dnia
     console.log(`[${new Date().toISOString()}] Uruchomiono codzienne zadanie cron.`);
 
     if (isFirstSundayOfMonth()) {
-      console.log(`[${new Date().toISOString()}] Jest pierwsza niedziela miesiąca. Uruchamianie przydzielania tajemnic...`);
+      console.log(`[${new Date().toISOString()}] Jest pierwsza niedziela miesiąca. Uruchamianie przydzielania tajemnic dla wszystkich Róż...`);
       try {
-        await assignMysteriesToAllActiveMembers();
-        console.log(`[${new Date().toISOString()}] Pomyślnie zakończono przydzielanie tajemnic.`);
+        await assignMysteriesToAllRoses(); // Wywołaj nową funkcję
+        console.log(`[${new Date().toISOString()}] Pomyślnie zakończono cykl przydzielania tajemnic dla Róż.`);
       } catch (error) {
-        console.error(`[${new Date().toISOString()}] Błąd podczas automatycznego przydzielania tajemnic:`, error);
+        console.error(`[${new Date().toISOString()}] Błąd podczas automatycznego przydzielania tajemnic dla Róż:`, error);
       }
     } else {
       console.log(`[${new Date().toISOString()}] Dzisiaj nie jest pierwsza niedziela miesiąca. Pomijanie przydzielania tajemnic.`);
     }
   }, {
-    // Obiekt opcji jako trzeci argument
-    timezone: "Europe/Warsaw",
-    // scheduled: true, // Można pominąć, bo jest domyślnie true. Jeśli ustawisz na false, musisz potem wywołać task.start()
+    timezone: "Europe/Warsaw"
+    // scheduled: true // Domyślnie true, więc można pominąć
   });
-
-  // Jeśli ustawiłbyś scheduled: false, zadanie nie wystartuje automatycznie.
-  // Wtedy musiałbyś je uruchomić ręcznie:
-  // task.start();
-  // console.log('Zadanie cron zostało zaplanowane i uruchomione.');
-
-  // Możesz dodać tutaj inne zadania cykliczne w przyszłości
+  // task.start(); // Jeśli scheduled byłoby false
 }

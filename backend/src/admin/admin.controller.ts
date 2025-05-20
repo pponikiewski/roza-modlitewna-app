@@ -1,24 +1,26 @@
 // backend/src/admin/admin.controller.ts
 import { Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from '../auth/auth.middleware';
-import prisma from '../db';
-import { UserRole } from '../types/user.types';
-import { assignMysteriesToAllActiveMembers } from '../services/rosary.service'; // Ważny import dla triggerMysteryAssignment
+import { AuthenticatedRequest } from '../auth/auth.middleware'; // Upewnij się, że ścieżka jest poprawna
+import prisma from '../db'; // Upewnij się, że ścieżka jest poprawna
+import { UserRole } from '../types/user.types'; // Upewnij się, że ścieżka jest poprawna
+import { assignMysteriesToAllRoses } from '../services/rosary.service'; // Poprawiona ścieżka
 
 const ALLOWED_ROLES_TO_ASSIGN: UserRole[] = [UserRole.MEMBER, UserRole.ZELATOR];
 
 export const updateUserRole = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   console.log(`[updateUserRole] Admin ${req.user?.email} próbuje zmienić rolę. Params: ${JSON.stringify(req.params)}, Body: ${JSON.stringify(req.body)}`);
   try {
-    const { userIdToUpdate } = req.params;
-    const { newRole } = req.body;
-
+    // Sprawdzenie uprawnień Admina jest już w middleware (isAdmin), ale można zostawić jako dodatkowe zabezpieczenie.
     if (req.user?.role !== UserRole.ADMIN) {
       res.status(403).json({ error: 'Brak uprawnień administratora.' });
       return;
     }
 
-    const typedNewRole = newRole?.toUpperCase() as UserRole;
+    const { userIdToUpdate } = req.params;
+    const { newRole } = req.body;
+
+
+    const typedNewRole = newRole?.toUpperCase() as UserRole; // Rzutujemy po walidacji
     const isValidRole = Object.values(UserRole).includes(typedNewRole);
     const isAllowedToAssign = ALLOWED_ROLES_TO_ASSIGN.includes(typedNewRole);
 
@@ -36,11 +38,13 @@ export const updateUserRole = async (req: AuthenticatedRequest, res: Response, n
       return;
     }
 
-    if (userToUpdate.id === req.user?.userId) {
+    // Admin nie może zmienić swojej własnej roli przez ten endpoint
+    if (userToUpdate.id === req.user?.userId) { // req.user na pewno istnieje po middleware
       res.status(403).json({ error: 'Administrator nie może zmienić swojej własnej roli za pomocą tego endpointu.' });
       return;
     }
     
+    // Admin nie może zmienić roli innego Admina (jeśli w przyszłości byliby inni admini)
     if (userToUpdate.role === UserRole.ADMIN) {
         res.status(403).json({ error: 'Nie można zmienić roli innego administratora.'});
         return;
@@ -48,7 +52,7 @@ export const updateUserRole = async (req: AuthenticatedRequest, res: Response, n
 
     const updatedUser = await prisma.user.update({
       where: { id: userIdToUpdate },
-      data: { role: typedNewRole },
+      data: { role: typedNewRole }, // Używamy zwalidowanej i skonwertowanej roli
       select: {
         id: true,
         email: true,
@@ -68,6 +72,7 @@ export const updateUserRole = async (req: AuthenticatedRequest, res: Response, n
 export const createRose = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   console.log(`[createRose] Admin ${req.user?.email} próbuje stworzyć Różę. Body: ${JSON.stringify(req.body)}`);
   try {
+    // Sprawdzenie uprawnień Admina (już w middleware)
     if (req.user?.role !== UserRole.ADMIN) {
         res.status(403).json({ error: 'Brak uprawnień administratora do tworzenia Róż.' });
         return;
@@ -89,6 +94,7 @@ export const createRose = async (req: AuthenticatedRequest, res: Response, next:
       return;
     }
 
+    // Zelator może mieć rolę ZELATOR lub ADMIN (Admin też może być zelatorem)
     if (zelatorUser.role !== UserRole.ZELATOR && zelatorUser.role !== UserRole.ADMIN) {
       res.status(400).json({ error: `Użytkownik o ID ${zelatorId} nie ma roli ZELATOR ani ADMIN. Zmień najpierw jego rolę.` });
       return;
@@ -98,11 +104,11 @@ export const createRose = async (req: AuthenticatedRequest, res: Response, next:
       data: {
         name,
         description,
-        zelator: {
+        zelator: { // Łączenie z istniejącym użytkownikiem Zelatorem
           connect: { id: zelatorId },
         },
       },
-      include: {
+      include: { // Dołącz dane Zelatora do odpowiedzi
          zelator: {
              select: { id: true, email: true, name: true, role: true }
          }
@@ -119,6 +125,7 @@ export const createRose = async (req: AuthenticatedRequest, res: Response, next:
 export const listRoses = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   console.log(`[listRoses] Admin ${req.user?.email} próbuje listować wszystkie Róże.`);
   try {
+    // Sprawdzenie uprawnień Admina (już w middleware)
     if (req.user?.role !== UserRole.ADMIN) {
         res.status(403).json({ error: 'Brak uprawnień administratora.' });
         return;
@@ -126,20 +133,20 @@ export const listRoses = async (req: AuthenticatedRequest, res: Response, next: 
 
     const roses = await prisma.rose.findMany({
       include: {
-        zelator: {
+        zelator: { // Dołączamy pełne dane Zelatora
           select: {
             id: true,
             email: true,
             name: true,
-            role: true
+            role: true // Może być przydatne, aby zobaczyć, czy Zelator nadal ma odpowiednią rolę
           },
         },
-        _count: {
+        _count: { // Policz członków każdej Róży
           select: { members: true }
         }
       },
       orderBy: {
-         createdAt: 'desc'
+         createdAt: 'desc' // Sortuj od najnowszych
       }
     });
     console.log(`[listRoses] Znaleziono ${roses.length} Róż.`);
@@ -150,27 +157,28 @@ export const listRoses = async (req: AuthenticatedRequest, res: Response, next: 
   }
 };
 
-// FUNKCJA DO RĘCZNEGO URUCHAMIANIA PRZYDZIELANIA TAJEMNIC
 export const triggerMysteryAssignment = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
-  console.log(`[triggerMysteryAssignment] Admin ${req.user?.email} inicjuje przydzielanie tajemnic.`);
+  console.log(`[triggerMysteryAssignment] Admin ${req.user?.email} inicjuje przydzielanie tajemnic dla wszystkich Róż.`);
   try {
-    // Sprawdzenie uprawnień Admina (już w middleware, ale dla pewności)
+    // Sprawdzenie uprawnień Admina (już w middleware)
     if (req.user?.role !== UserRole.ADMIN) {
         res.status(403).json({ error: 'Brak uprawnień administratora.' });
         return;
     }
 
-    // Uruchomienie logiki w tle, aby nie blokować odpowiedzi HTTP na długo
-    // Funkcja assignMysteriesToAllActiveMembers sama w sobie loguje błędy, jeśli wystąpią.
-    assignMysteriesToAllActiveMembers().catch(err => {
-      // Dodatkowy log, jeśli samo wywołanie assignMysteriesToAllActiveMembers rzuci błąd synchronicznie
-      // lub jeśli chcemy tu coś specyficznego zrobić z błędem z promise.
-      console.error("Błąd podczas wywołania assignMysteriesToAllActiveMembers z triggerMysteryAssignment:", err);
+    // Wywołujemy funkcję w tle i nie czekamy na jej zakończenie, aby odpowiedź HTTP była szybka.
+    // Błędy z assignMysteriesToAllRoses będą logowane przez tę funkcję.
+    assignMysteriesToAllRoses().catch(err => {
+      console.error("Błąd podczas asynchronicznego wywołania assignMysteriesToAllRoses z triggerMysteryAssignment:", err);
+      // Tutaj nie możemy już wysłać odpowiedzi HTTP, bo status 202 został już wysłany.
+      // Można by tu zaimplementować np. system powiadomień dla admina o błędach w tle.
     });
 
-    res.status(202).json({ message: 'Proces przydzielania tajemnic został zainicjowany w tle.' });
+    res.status(202).json({ message: 'Proces przydzielania tajemnic dla wszystkich Róż został zainicjowany w tle.' });
   } catch (error) {
-    console.error('[triggerMysteryAssignment] Błąd w głównym bloku try-catch:', error);
-    next(error); // Przekaż do globalnego error handlera, jeśli coś pójdzie nie tak tutaj
+    // Ten blok catch złapie błędy tylko z synchronicznej części powyższego kodu,
+    // np. jeśli req.user?.role rzuciłoby błąd (co nie powinno się zdarzyć po middleware).
+    console.error('[triggerMysteryAssignment] Błąd w głównym bloku try-catch (synchroniczny):', error);
+    next(error);
   }
 };

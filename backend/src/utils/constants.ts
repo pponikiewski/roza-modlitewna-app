@@ -165,3 +165,6 @@ export function getRandomElement<T>(array: T[]): T | undefined {
 export function findMysteryById(id: string): RosaryMystery | undefined {
   return ROSARY_MYSTERIES.find(mystery => mystery.id === id);
 }
+
+// NOWA STAŁA
+export const MAX_ROSE_MEMBERS = 20;

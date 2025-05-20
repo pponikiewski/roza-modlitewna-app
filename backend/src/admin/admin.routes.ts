@@ -1,8 +1,14 @@
 // backend/src/admin/admin.routes.ts
 import { Router } from 'express';
-import { updateUserRole, createRose, listRoses } from './admin.controller';
+// Upewnij się, że wszystkie potrzebne funkcje kontrolera są zaimportowane
+import { 
+    updateUserRole, 
+    createRose, 
+    listRoses, 
+    triggerMysteryAssignment // Dodaj ten import
+} from './admin.controller';
 import { authenticateToken, isAdmin } from '../auth/auth.middleware';
-import {triggerMysteryAssignment } from './admin.controller';
+// UserRole nie jest bezpośrednio potrzebny w tym pliku, jeśli używamy isAdmin
 
 const router = Router();
 
@@ -16,24 +22,25 @@ router.patch(
 
 // --- Zarządzanie Różami ---
 router.post(
-  '/roses', // Tworzenie nowej Róży
+  '/roses',
   authenticateToken,
   isAdmin,
   createRose
 );
 
 router.get(
-  '/roses', // Listowanie wszystkich Róż
+  '/roses',
   authenticateToken,
   isAdmin,
   listRoses
 );
 
-  router.post(
-    '/trigger-mystery-assignment',
-    authenticateToken,
-    isAdmin,
-    triggerMysteryAssignment
-  );
+// --- Inne Akcje Administracyjne ---
+router.post(
+  '/trigger-mystery-assignment', // Trasa do ręcznego wywołania przydzielania tajemnic
+  authenticateToken,
+  isAdmin,
+  triggerMysteryAssignment
+);
 
 export default router;
