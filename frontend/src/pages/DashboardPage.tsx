@@ -100,7 +100,7 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="p-4 md:p-8 bg-slate-100 min-h-screen">
+    <div className="p-4 md:p-8 bg-slate-100">
       <div className="max-w-4xl mx-auto"> {/* Zwiększono max-w dla lepszego układu */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-8 pb-4 border-b border-gray-300">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2 sm:mb-0">
