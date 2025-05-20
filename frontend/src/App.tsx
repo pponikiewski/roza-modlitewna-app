@@ -1,13 +1,16 @@
 // frontend/src/App.tsx
-import React from 'react';
+import React from 'react'; // Upewnij się, że React jest zaimportowany, jeśli używasz React.ReactElement
 import { Routes, Route, Navigate, Link as RouterLink } from 'react-router-dom';
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from './pages/DashboardPage';
 import ZelatorDashboardPage from './pages/ZelatorDashboardPage';
 import ManagedRoseDetailsPage from './pages/ManagedRoseDetailsPage';
+import AdminPanelPage from './pages/AdminPanelPage';
+import AdminUsersPage from './pages/AdminUsersPage';
+import AdminRosesPage from './pages/AdminRosesPage';
 import { useAuth } from "./contexts/AuthContext";
-import { UserRoles, type UserRole } from './types/user.types'; // Zaktualizowany import
+import { UserRoles, type UserRole } from './types/user.types';
 
 
 // Komponent chronionej trasy
@@ -22,9 +25,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement; allowedRoles?: Us
     return <Navigate to="/login" replace />;
   }
 
-  // user.role z AuthContext to string. Porównujemy go z wartościami z obiektu UserRoles.
-  // Rzutowanie 'user.role as UserRole' jest tu dla pewności, że TypeScript wie, że próbujemy
-  // dopasować do naszego zdefiniowanego typu unii.
   if (allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
     return (
       <div className="p-8 text-center min-h-screen flex flex-col justify-center items-center bg-gray-100">
@@ -44,7 +44,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement; allowedRoles?: Us
 
 
 // Komponent dla stron publicznych (np. logowanie, rejestracja), przekierowuje jeśli zalogowany
-const PublicRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+const PublicRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => { // <<<< ZMIANA TUTAJ
   const { token, isLoading } = useAuth();
 
   if (isLoading) {
@@ -71,39 +71,52 @@ function App() {
 
   return (
     <>
-     {user && ( // Wyświetl nawigację tylko jeśli użytkownik jest zalogowany
+     {user && (
        <nav className="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50">
          <div className="container mx-auto flex flex-wrap justify-between items-center">
            <RouterLink to="/dashboard" className="text-xl font-semibold hover:text-indigo-200 mb-2 sm:mb-0">
              Róża Modlitewna
            </RouterLink>
-           <div className="flex flex-wrap items-center space-x-2 sm:space-x-4">
-             <RouterLink to="/dashboard" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-600 transition-colors">Panel Użytkownika</RouterLink>
-             {/* Używamy teraz UserRoles.NAZWA_ROLI do porównań */}
+           <div className="flex flex-wrap items-center space-x-2 sm:space-x-4 text-sm">
+             <RouterLink to="/dashboard" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Panel Użytkownika</RouterLink>
              {(user.role === UserRoles.ZELATOR || user.role === UserRoles.ADMIN) && (
-               <RouterLink to="/zelator-dashboard" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-600 transition-colors">Panel Zelatora</RouterLink>
+               <RouterLink to="/zelator-dashboard" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Panel Zelatora</RouterLink>
              )}
              {user.role === UserRoles.ADMIN && (
-               <RouterLink to="/admin-panel" className="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-600 transition-colors">Panel Admina (TODO)</RouterLink>
+               <RouterLink to="/admin-panel" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Panel Admina</RouterLink>
              )}
            </div>
          </div>
        </nav>
      )}
 
-     <main className={user ? "pt-контроль_wysokosci_navbara" : ""}> {/* Dodaj padding-top, jeśli navbar jest sticky */}
+     <main className={user ? "pt-16 md:pt-0" : ""}> {/* Dostosuj padding-top do wysokości navbara */}
       <Routes>
-        <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
+        <Route 
+            path="/" 
+            element={
+                <ProtectedRoute>
+                    {/* Dziecko ProtectedRoute musi być pojedynczym elementem React */}
+                    <Navigate to="/dashboard" replace /> 
+                </ProtectedRoute>
+            } 
+        />
         
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
         
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+        <Route 
+            path="/dashboard" 
+            element={
+                <ProtectedRoute>
+                    <DashboardPage />
+                </ProtectedRoute>
+            } 
+        />
         
         <Route 
           path="/zelator-dashboard" 
           element={
-            // Używamy UserRoles.NAZWA_ROLI w tablicy allowedRoles
             <ProtectedRoute allowedRoles={[UserRoles.ZELATOR, UserRoles.ADMIN]}>
               <ZelatorDashboardPage />
             </ProtectedRoute>
@@ -117,16 +130,19 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        {/* TODO: Dodać trasę dla /admin-panel */}
-        {/* <Route 
-            path="/admin-panel" 
-            element={
-              <ProtectedRoute allowedRoles={[UserRoles.ADMIN]}>
-                <AdminPanelPage /> // Przykładowy komponent
-              </ProtectedRoute>
-            } 
-        /> */}
 
+        <Route 
+          path="/admin-panel" 
+          element={
+            <ProtectedRoute allowedRoles={[UserRoles.ADMIN]}>
+              <AdminPanelPage /> 
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="users" replace />} /> 
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="roses" element={<AdminRosesPage />} />
+        </Route>
 
         <Route path="*" element={
               <div className="flex flex-col items-center justify-center min-h-screen py-10">
