@@ -13,7 +13,7 @@ import {
   authorizeRole,
   AuthenticatedRequest
 } from './auth/auth.middleware';
-import { UserRole } from './types/user.types';
+import { UserRole } from './types/user.types'; // Upewnij się, że ten plik istnieje i enum jest poprawny
 
 dotenv.config();
 
@@ -21,7 +21,7 @@ const app: Express = express();
 const port = process.env.PORT || 3001;
 
 // --- Konfiguracja CORS ---
-const allowedOrigins = ['http://localhost:5173']; // Adres Twojego frontendu Vite
+const allowedOrigins = ['http://localhost:5173']; 
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
@@ -37,19 +37,27 @@ const corsOptions: cors.CorsOptions = {
 
 app.use(cors(corsOptions));
 
-// Middleware do parsowania JSON
 app.use(express.json());
 
 // --- Definicje Tras ---
+console.log('Rejestrowanie tras...'); // Log do sprawdzenia, czy ten fragment jest wykonywany
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Witaj na serwerze Róży Modlitewnej!');
 });
 
 app.use('/auth', authRoutes);
+console.log('Trasy /auth zarejestrowane.');
+
 app.use('/admin', adminRoutes);
-app.use('/zelator', zelatorRoutes);
+console.log('Trasy /admin zarejestrowane.');
+
+app.use('/zelator', zelatorRoutes); // Upewnij się, że to jest poprawnie skonfigurowane
+console.log('Trasy /zelator zarejestrowane.');
+
 app.use('/me', memberRoutes);
+console.log('Trasy /me zarejestrowane.');
+
 
 app.get(
   '/users',
@@ -77,38 +85,31 @@ app.get(
     }
   }
 );
+console.log('Trasa /users zarejestrowana.');
 
 // --- Globalny Error Handler ---
-// Musi być zdefiniowany jako ostatni, po wszystkich app.use() i trasach.
-app.use((err: Error, req: Request, res: Response, next: NextFunction): void => { // Jawne :void dla pewności
-  console.error("Wystąpił błąd na serwerze:", err.name, "-", err.message);
-  // W środowisku deweloperskim można dodać logowanie stack trace dla łatwiejszego debugowania
-  // if (process.env.NODE_ENV === 'development') {
-  //   console.error(err.stack);
-  // }
+app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
+  console.error("GLOBAL ERROR HANDLER:", err.name, "-", err.message, err.stack ? `\nStack: ${err.stack}`: '');
   
-  // Sprawdź, czy nagłówki nie zostały już wysłane
   if (res.headersSent) {
-    return next(err); // Przekaż do domyślnego error handlera Express
+    return next(err);
   }
 
-  // Specjalna obsługa dla błędów CORS (jeśli błąd jest rzucany przez naszą logikę w corsOptions)
   if (err.message === 'Not allowed by CORS') {
     res.status(403).json({ error: 'Dostęp z tego źródła jest zablokowany przez politykę CORS.' });
-    return; // Zakończ po wysłaniu odpowiedzi
+    return;
   }
 
-  // Dla wszystkich innych błędów, wyślij generyczną odpowiedź 500
   res.status(500).json({ error: 'Wystąpił wewnętrzny błąd serwera. Spróbuj ponownie później.' });
-  // Nie ma potrzeby 'return' tutaj, jeśli to ostatnia operacja w tej funkcji dla tej ścieżki kodu
 });
+console.log('Globalny error handler zarejestrowany.');
 
 // Uruchomienie serwera i schedulera
 app.listen(port, () => {
-  console.log(`⚡️[server]: Serwer uruchomiony na http://localhost:${port}`);
+  console.log(`⚡️[server]: Serwer Express uruchomiony na http://localhost:${port}`);
   try {
     startScheduler();
-  } catch (error) { 
+  } catch (error) {
     console.error("Nie udało się uruchomić schedulera:", error);
   }
 });
