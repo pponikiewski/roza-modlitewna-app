@@ -1,75 +1,130 @@
 // frontend/src/pages/DashboardPage.tsx
-import React, { useEffect, useState, useCallback } from 'react'; // Dodaj useCallback
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
-import type { CurrentMysteryInfo, MysteryHistoryResponse, MysteryHistoryEntry } from '../types/rosary.types';
+import type { CurrentMysteryInfo, MysteryHistoryResponse, MysteryHistoryEntry, UserMembership, RosaryMysteryDetails } from '../types/rosary.types'; // Upewnij się, że wszystkie typy są tu lub w `rosary.types.ts`
+import { Link as RouterLink } from 'react-router-dom';
 
 const DashboardPage: React.FC = () => {
-  const { user, logout } = useAuth();
-  const [currentMysteryInfo, setCurrentMysteryInfo] = useState<CurrentMysteryInfo | null>(null);
-  const [mysteryHistory, setMysteryHistory] = useState<MysteryHistoryEntry[] | null>(null); // Zmieniamy na tablicę lub null
-  const [roseNameForHistory, setRoseNameForHistory] = useState<string | null>(null); // Nazwa Róży dla historii
-  const [isLoadingMystery, setIsLoadingMystery] = useState(true);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [confirmError, setConfirmError] = useState<string | null>(null); // Osobny error dla potwierdzenia
-  const [historyError, setHistoryError] = useState<string | null>(null); // Osobny error dla historii
-  const [isConfirming, setIsConfirming] = useState(false);
+  const { user, logout } = useAuth(); // Pobieramy usera i funkcję logout z kontekstu
 
-  const fetchCurrentMystery = useCallback(async () => { // Użyj useCallback
+  // Stan dla informacji o "głównej" lub pierwszej tajemnicy (może być później usunięty lub zmieniony)
+  const [currentMysteryInfo, setCurrentMysteryInfo] = useState<CurrentMysteryInfo | null>(null);
+  const [isLoadingMystery, setIsLoadingMystery] = useState(true); // Ładowanie dla "głównej" tajemnicy
+  
+  // Stany dla listy członkostw użytkownika
+  const [myMemberships, setMyMemberships] = useState<UserMembership[]>([]);
+  const [isLoadingMemberships, setIsLoadingMemberships] = useState(true);
+  const [membershipsError, setMembershipsError] = useState<string | null>(null);
+
+  // Stany dla historii tajemnic (dla wybranego członkostwa)
+  const [selectedMembershipForHistory, setSelectedMembershipForHistory] = useState<UserMembership | null>(null);
+  const [mysteryHistory, setMysteryHistory] = useState<MysteryHistoryEntry[] | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // Ogólny błąd strony i błąd potwierdzenia
+  const [pageError, setPageError] = useState<string | null>(null); // Zastępuje poprzedni `error`
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [isConfirming, setIsConfirming] = useState<string | null>(null); // Przechowuje ID członkostwa, które jest potwierdzane
+
+
+  // Pobieranie "głównej" aktualnej tajemnicy (dla pierwszego członkostwa - do ewentualnej refaktoryzacji)
+  const fetchCurrentMysteryDEPRECATED = useCallback(async () => {
     if (!user) return;
     setIsLoadingMystery(true);
-    setError(null);
+    setPageError(null); // Resetujemy ogólny błąd strony
     try {
       const response = await apiClient.get<CurrentMysteryInfo>('/me/current-mystery');
       setCurrentMysteryInfo(response.data);
-      // Jeśli mamy membershipId, możemy od razu spróbować załadować historię lub przygotować do załadowania
-      if (response.data && response.data.membershipId) {
-         // Można by od razu wywołać fetchMysteryHistory(response.data.membershipId)
-         // lub poczekać na kliknięcie użytkownika
-      }
     } catch (err: any) {
-      console.error("Błąd pobierania aktualnej tajemnicy:", err);
-      setError(err.response?.data?.error || 'Nie udało się pobrać danych o tajemnicy.');
+      console.error("Błąd pobierania 'głównej' aktualnej tajemnicy:", err);
+      setPageError(err.response?.data?.error || 'Nie udało się pobrać danych o głównej tajemnicy.');
       setCurrentMysteryInfo(null);
     } finally {
       setIsLoadingMystery(false);
     }
-  }, [user]); // Zależność od user
+  }, [user]);
+
+  // Pobieranie listy członkostw użytkownika
+  const fetchMyMemberships = useCallback(async () => {
+    if (!user) return;
+    setIsLoadingMemberships(true);
+    setMembershipsError(null);
+    try {
+      const response = await apiClient.get<UserMembership[]>('/me/my-memberships');
+      setMyMemberships(response.data);
+      // Jeśli jest to pierwsze ładowanie i nie ma currentMysteryInfo, a są członkostwa,
+      // możemy ustawić currentMysteryInfo na podstawie pierwszego członkostwa z listy
+      if (!currentMysteryInfo && response.data.length > 0) {
+        const firstMembership = response.data[0];
+        if (firstMembership) {
+            setCurrentMysteryInfo({
+                membershipId: firstMembership.id,
+                roseName: firstMembership.rose.name,
+                mystery: firstMembership.currentMysteryFullDetails,
+                confirmedAt: firstMembership.mysteryConfirmedAt
+            });
+        }
+      }
+
+    } catch (err: any) {
+      console.error("Błąd pobierania członkostw użytkownika:", err);
+      setMembershipsError(err.response?.data?.error || 'Nie udało się pobrać listy Twoich Róż.');
+    } finally {
+      setIsLoadingMemberships(false);
+    }
+  }, [user, currentMysteryInfo]); // Dodano currentMysteryInfo, aby uniknąć wielokrotnego ustawiania
 
   useEffect(() => {
-    fetchCurrentMystery();
-  }, [fetchCurrentMystery]); // Wywołaj po zamontowaniu i gdy fetchCurrentMystery się zmieni
+    // fetchCurrentMysteryDEPRECATED(); // Możemy to wywołać lub polegać na danych z fetchMyMemberships
+    fetchMyMemberships();
+  }, [fetchMyMemberships]); // fetchCurrentMysteryDEPRECATED nie jest już w zależnościach, bo fetchMyMemberships może obsłużyć jego cel
 
-  const handleConfirmMystery = async () => {
-     if (!currentMysteryInfo || !currentMysteryInfo.membershipId || !currentMysteryInfo.mystery) {
-         setConfirmError('Brak danych o członkostwie lub tajemnicy do potwierdzenia.');
+
+  const handleConfirmMystery = async (membershipIdToConfirm: string, mysteryId: string | null) => {
+     if (!membershipIdToConfirm || !mysteryId) {
+         setConfirmError('Brak ID członkostwa lub tajemnicy do potwierdzenia.');
          return;
      }
-     setIsConfirming(true);
+     setIsConfirming(membershipIdToConfirm); // Ustawiamy ID potwierdzanego członkostwa
      setConfirmError(null);
      try {
-         const response = await apiClient.patch<CurrentMysteryInfo>(`/me/memberships/${currentMysteryInfo.membershipId}/confirm-mystery`);
-         setCurrentMysteryInfo(response.data); // Zaktualizuj dane, w tym confirmedAt
+         const response = await apiClient.patch<CurrentMysteryInfo>(`/me/memberships/${membershipIdToConfirm}/confirm-mystery`);
+         // Zaktualizuj stan myMemberships, aby odzwierciedlić potwierdzenie
+         setMyMemberships(prevMemberships => 
+            prevMemberships.map(memb => 
+                memb.id === membershipIdToConfirm 
+                ? { ...memb, mysteryConfirmedAt: response.data.confirmedAt, currentMysteryFullDetails: response.data.mystery } 
+                : memb
+            )
+         );
+         // Jeśli to było "główne" currentMysteryInfo, też je zaktualizuj
+         if (currentMysteryInfo && currentMysteryInfo.membershipId === membershipIdToConfirm) {
+            setCurrentMysteryInfo(prev => prev ? {...prev, confirmedAt: response.data.confirmedAt, mystery: response.data.mystery } : null);
+         }
+
      } catch (err: any) {
          console.error("Błąd potwierdzania tajemnicy:", err);
          setConfirmError(err.response?.data?.error || 'Nie udało się potwierdzić tajemnicy.');
      } finally {
-        setIsConfirming(false);
+        setIsConfirming(null); // Reset
      }
   };
   
-  const fetchMysteryHistory = async () => {
-     if (!currentMysteryInfo || !currentMysteryInfo.membershipId) {
+  const fetchMysteryHistory = async (membership: UserMembership) => {
+     if (!membership || !membership.id) {
          setHistoryError('Brak informacji o członkostwie, aby pobrać historię.');
          return;
      }
+     setSelectedMembershipForHistory(membership); // Zapisz, dla której róży jest historia
      setIsLoadingHistory(true);
      setHistoryError(null);
+     setMysteryHistory(null); // Wyczyść poprzednią historię
      try {
-         const response = await apiClient.get<MysteryHistoryResponse>(`/me/memberships/${currentMysteryInfo.membershipId}/mystery-history`);
+         const response = await apiClient.get<MysteryHistoryResponse>(`/me/memberships/${membership.id}/mystery-history`);
          setMysteryHistory(response.data.history);
-         setRoseNameForHistory(response.data.roseName);
+         // roseNameForHistory jest już w selectedMembershipForHistory.rose.name
      } catch (err:any) {
          console.error("Błąd pobierania historii tajemnic:", err);
          setHistoryError(err.response?.data?.error || 'Nie udało się pobrać historii tajemnic.');
@@ -83,93 +138,109 @@ const DashboardPage: React.FC = () => {
     return <p className="p-8 text-center text-red-600">Błąd: Brak danych użytkownika. Proszę się zalogować.</p>;
   }
 
+  // Główny widok ładowania, jeśli jeszcze nie ma danych o członkostwach
+  if (isLoadingMemberships) {
+    return <div className="p-8 text-center text-xl">Ładowanie Twoich danych...</div>;
+  }
+
   return (
     <div className="p-4 md:p-8 bg-slate-100 min-h-screen">
-      <div className="max-w-3xl mx-auto">
-        {/* Sekcja nagłówka i wylogowania (bez zmian) */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 pb-4 border-b border-gray-300">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2 sm:mb-0">
             Witaj, {user.name || user.email}!
           </h1>
-          <button onClick={logout} /* ... */ >Wyloguj</button>
+          <button
+            onClick={logout}
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md shadow hover:bg-red-700 focus:ring-2 focus:ring-red-500"
+          >
+            Wyloguj
+          </button>
         </div>
 
-        {error && <p className="mb-4 p-3 text-red-700 bg-red-100 border border-red-300 rounded-md">{error}</p>}
+        {membershipsError && <p className="mb-4 p-3 text-red-700 bg-red-100 border border-red-300 rounded-md">{membershipsError}</p>}
+        {pageError && <p className="mb-4 p-3 text-red-700 bg-red-100 border border-red-300 rounded-md">{pageError}</p>}
 
-        {/* Sekcja Aktualnej Tajemnicy */}
-        <div className="bg-white p-6 rounded-lg shadow-lg mb-8">
-          <h2 className="text-xl font-semibold text-gray-700 mb-1">
-            Twoja Róża: <span className="font-normal">{isLoadingMystery ? 'Ładowanie...' : currentMysteryInfo?.roseName || 'Brak danych Róży'}</span>
-          </h2>
-          <p className="text-sm text-gray-500 mb-4">Rola w systemie: {user.role}</p>
-          
-          {isLoadingMystery ? (
-            <p className="text-gray-600 py-4">Ładowanie aktualnej tajemnicy...</p>
-          ) : currentMysteryInfo && currentMysteryInfo.mystery ? (
-            <div>
-              {/* Wyświetlanie tajemnicy, rozważania, obrazka (bez zmian) */}
-              <h3 className="text-2xl font-semibold text-indigo-700 mb-2">{currentMysteryInfo.mystery.name}</h3>
-              <p className="text-sm text-gray-500 mb-3">({currentMysteryInfo.mystery.group})</p>
-              {currentMysteryInfo.mystery.imageUrl && ( <img src={currentMysteryInfo.mystery.imageUrl} /* ... */ /> )}
-              <div className="bg-indigo-50 p-4 rounded-md mb-4"> {/* ... rozważanie ... */} </div>
-              
-              {confirmError && <p className="mb-2 p-2 text-sm text-red-600 bg-red-100 rounded">{confirmError}</p>}
-              {currentMysteryInfo.confirmedAt ? (
-                <p className="text-green-600 bg-green-100 p-3 rounded-md text-sm">
-                  Zapoznanie z tajemnicą potwierdzone dnia: {new Date(currentMysteryInfo.confirmedAt).toLocaleString('pl-PL', { dateStyle: 'long', timeStyle: 'short' })}
-                </p>
-              ) : (
-                <button onClick={handleConfirmMystery} disabled={isConfirming} /* ... */ >
-                  {isConfirming ? 'Potwierdzanie...' : 'Potwierdzam zapoznanie się z tajemnicą'}
-                </button>
-              )}
+        {myMemberships.length === 0 && !isLoadingMemberships && (
+          <div className="bg-white p-6 rounded-lg shadow-lg text-center">
+            <p className="text-gray-700 text-lg">Nie należysz jeszcze do żadnej Róży.</p>
+            <p className="text-gray-500 mt-2">Skontaktuj się z Zelatorem lub Administratorem, aby dołączyć do Róży.</p>
+          </div>
+        )}
+
+        {myMemberships.map(membership => (
+          <div key={membership.id} className="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <h2 className="text-xl font-semibold text-gray-700 mb-1">
+              Twoja Róża: <span className="font-medium text-indigo-600">{membership.rose.name}</span>
+            </h2>
+            <p className="text-sm text-gray-500 mb-1">Zelator: {membership.rose.zelator.name || membership.rose.zelator.email}</p>
+            {membership.rose.description && <p className="text-sm text-gray-500 mb-4 italic">"{membership.rose.description}"</p>}
+            
+            {membership.currentMysteryFullDetails ? (
+              <div>
+                <h3 className="text-lg md:text-xl font-semibold text-blue-700 mt-4 mb-2">{membership.currentMysteryFullDetails.name}</h3>
+                <p className="text-xs text-gray-500 mb-3">({membership.currentMysteryFullDetails.group})</p>
+                
+                {membership.currentMysteryFullDetails.imageUrl && (
+                   <img 
+                       src={membership.currentMysteryFullDetails.imageUrl} 
+                       alt={`Grafika dla ${membership.currentMysteryFullDetails.name}`} 
+                       className="w-full max-w-sm mx-auto h-auto rounded-lg shadow mb-4 object-contain" 
+                       style={{maxHeight: '250px'}}
+                   />
+                )}
+
+                <div className="bg-blue-50 p-3 rounded-md mb-4">
+                   <h4 className="font-semibold text-blue-800 mb-1 text-sm">Rozważanie:</h4>
+                   <p className="text-gray-700 text-sm whitespace-pre-wrap">{membership.currentMysteryFullDetails.contemplation}</p>
+                </div>
+
+                {confirmError && isConfirming === membership.id && <p className="mb-2 p-2 text-xs text-red-600 bg-red-100 rounded">{confirmError}</p>}
+                {membership.mysteryConfirmedAt ? (
+                  <p className="text-green-600 bg-green-100 p-2 rounded-md text-xs">
+                    Zapoznanie z tajemnicą potwierdzone dnia: {new Date(membership.mysteryConfirmedAt).toLocaleString('pl-PL', { dateStyle: 'medium', timeStyle: 'short' })}
+                  </p>
+                ) : (
+                  <button
+                    onClick={() => handleConfirmMystery(membership.id, membership.currentMysteryFullDetails!.id)}
+                    disabled={isConfirming === membership.id}
+                    className="w-full sm:w-auto px-5 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-green-500 disabled:opacity-60"
+                  >
+                    {isConfirming === membership.id ? 'Potwierdzanie...' : 'Potwierdzam zapoznanie się'}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-600 mt-4 py-2">Nie masz jeszcze przydzielonej tajemnicy w tej Róży. Poczekaj na przydział.</p>
+            )}
+
+            {/* Przycisk do pokazania/ukrycia historii dla tej konkretnej róży */}
+            <div className="mt-4 border-t pt-4">
+                {selectedMembershipForHistory?.id === membership.id && isLoadingHistory ? (
+                    <p className="text-sm text-gray-600">Ładowanie historii...</p>
+                ) : selectedMembershipForHistory?.id === membership.id && mysteryHistory ? (
+                    <>
+                        <button onClick={() => { setMysteryHistory(null); setSelectedMembershipForHistory(null); }} className="text-sm text-blue-600 hover:underline mb-2">Ukryj historię</button>
+                        {historyError && <p className="mb-2 p-2 text-xs text-red-600 bg-red-100 rounded">{historyError}</p>}
+                        {mysteryHistory.length > 0 ? (
+                            <ul className="space-y-2 max-h-60 overflow-y-auto text-xs">
+                                {mysteryHistory.map(entry => (
+                                <li key={entry.id} className="p-2 bg-gray-100 rounded">
+                                    <span className="font-medium">{entry.mysteryDetails?.name || `ID: ${entry.mystery}`}</span>
+                                    <span className="text-gray-500 ml-2">({entry.assignedMonth}/{entry.assignedYear})</span>
+                                </li>
+                                ))}
+                            </ul>
+                        ) : <p className="text-sm text-gray-500">Brak historii dla tej Róży.</p>}
+                    </>
+                ) : (
+                    <button onClick={() => fetchMysteryHistory(membership)} className="text-sm text-blue-600 hover:underline">
+                        Pokaż historię tej Róży
+                    </button>
+                )}
             </div>
-          ) : currentMysteryInfo && !currentMysteryInfo.mystery ? (
-            <p className="text-gray-600 py-4">Nie masz jeszcze przydzielonej tajemnicy w Róży "{currentMysteryInfo.roseName}". Poczekaj na przydział.</p>
-          ) : !isLoadingMystery ? ( // Dodatkowe sprawdzenie, by nie pokazywać, gdy error jest już wyświetlony
-             <p className="text-gray-600 py-4">Brak informacji o członkostwie lub nie udało się załadować danych.</p>
-          ) : null }
-        </div>
-
-        {/* Sekcja Historii Tajemnic */}
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-             <h2 className="text-xl font-semibold text-gray-700 mb-3">
-                 Historia Twoich Tajemnic {roseNameForHistory && `w Róży "${roseNameForHistory}"`}
-             </h2>
-             
-             {historyError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{historyError}</p>}
-
-             {!mysteryHistory && !isLoadingHistory && currentMysteryInfo?.membershipId && (
-                 <button 
-                     onClick={fetchMysteryHistory}
-                     className="mb-4 px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500"
-                 >
-                     Pokaż historię
-                 </button>
-             )}
-             {isLoadingHistory && <p className="text-gray-600">Ładowanie historii...</p>}
-
-             {mysteryHistory && mysteryHistory.length > 0 && (
-                 <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                     {mysteryHistory.map(entry => (
-                         <li key={entry.id} className="p-3 bg-gray-50 rounded-md border border-gray-200">
-                             <p className="font-semibold text-gray-800">{entry.mysteryDetails?.name || `Tajemnica ID: ${entry.mystery}`}</p>
-                             <p className="text-sm text-gray-600">Grupa: {entry.mysteryDetails?.group || 'Brak danych'}</p>
-                             <p className="text-xs text-gray-500">
-                                 Przydzielono: {entry.assignedMonth}/{entry.assignedYear} 
-                                 (dokładnie: {new Date(entry.assignedAt).toLocaleDateString('pl-PL')})
-                             </p>
-                             {entry.mysteryDetails?.contemplation && (
-                                 <p className="mt-1 text-xs text-gray-600 italic">Rozważanie: {entry.mysteryDetails.contemplation.substring(0,100)}...</p>
-                             )}
-                         </li>
-                     ))}
-                 </ul>
-             )}
-             {mysteryHistory && mysteryHistory.length === 0 && (
-                 <p className="text-gray-500">Brak historii przydzielonych tajemnic.</p>
-             )}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   );

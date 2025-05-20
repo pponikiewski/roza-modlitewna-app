@@ -1,23 +1,18 @@
 // backend/src/member/member.routes.ts
 import { Router } from 'express';
-import { getCurrentMysteryInfo, confirmMysteryRead, getMysteryHistory } from './member.controller';
-import { authenticateToken } from '../auth/auth.middleware'; // Tylko uwierzytelnienie jest potrzebne
+// Dodaj listMyMemberships do importów
+import { getCurrentMysteryInfo, confirmMysteryRead, getMysteryHistory, listMyMemberships } from './member.controller';
+import { authenticateToken } from '../auth/auth.middleware';
 
 const router = Router();
 
-// Wszystkie te trasy wymagają, aby użytkownik był zalogowany
 router.use(authenticateToken); // Stosujemy middleware do wszystkich tras w tym routerze
 
-// Pobranie aktualnej tajemnicy (na razie dla pierwszego członkostwa)
-// TODO: W przyszłości można by tu przekazać ID członkostwa, jeśli użytkownik jest w wielu Różach
-router.get('/current-mystery', getCurrentMysteryInfo);
+// NOWA TRASA: Listowanie Róż (członkostw) zalogowanego użytkownika
+router.get('/my-memberships', listMyMemberships);
 
-// Potwierdzenie zapoznania się z tajemnicą dla konkretnego członkostwa
-// Używamy ID członkostwa w ścieżce, aby było jasne, którego członkostwa dotyczy potwierdzenie.
+router.get('/current-mystery', getCurrentMysteryInfo); // Ta trasa może wymagać modyfikacji lub ID członkostwa
 router.patch('/memberships/:membershipId/confirm-mystery', confirmMysteryRead);
-
-// Pobranie historii tajemnic dla konkretnego członkostwa
 router.get('/memberships/:membershipId/mystery-history', getMysteryHistory);
-
 
 export default router;

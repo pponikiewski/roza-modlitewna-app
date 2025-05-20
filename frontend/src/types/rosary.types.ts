@@ -28,3 +28,28 @@ export interface MysteryHistoryResponse {
   roseName: string;
   history: MysteryHistoryEntry[];
 }
+
+export interface BasicZelatorInfo {
+    id: string;
+    name?: string | null;
+    email: string;
+}
+
+export interface BasicRoseInfo {
+    id: string;
+    name: string;
+    description?: string | null;
+    zelator: BasicZelatorInfo;
+}
+
+export interface UserMembership {
+    id: string; // ID członkostwa (RoseMembership.id)
+    userId: string;
+    roseId: string;
+    createdAt: string;
+    updatedAt: string;
+    currentAssignedMystery: string | null; // ID tajemnicy
+    mysteryConfirmedAt: string | null;
+    rose: BasicRoseInfo; // Dane Róży
+    currentMysteryFullDetails: RosaryMysteryDetails | null; // Pełne dane aktualnej tajemnicy
+}
