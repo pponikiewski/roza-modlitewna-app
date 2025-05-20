@@ -1,18 +1,17 @@
 // backend/src/zelator/zelator.routes.ts
 import { Router } from 'express';
-// Upewnij się, że getMyManagedRoses jest zaimportowane z kontrolera
-import { addMemberToRose, listRoseMembers, getMyManagedRoses } from './zelator.controller';
+// Dodaj removeMemberFromRose do importów
+import { addMemberToRose, listRoseMembers, getMyManagedRoses, removeMemberFromRose } from './zelator.controller';
 import { authenticateToken, authorizeRole } from '../auth/auth.middleware';
-import { UserRole } from '../types/user.types'; // Zaimportuj, jeśli jeszcze nie ma
+import { UserRole } from '../types/user.types';
 
 const router = Router();
 
-// Trasa do pobierania Róż zarządzanych przez zalogowanego Zelatora/Admina
 router.get(
-  '/my-roses', // Ścieżka względem prefiksu /zelator zdefiniowanego w index.ts
+  '/my-roses',
   authenticateToken,
   authorizeRole([UserRole.ZELATOR, UserRole.ADMIN]),
-  getMyManagedRoses // Funkcja kontrolera
+  getMyManagedRoses
 );
 
 router.post(
@@ -27,6 +26,15 @@ router.get(
   authenticateToken,
   authorizeRole([UserRole.ADMIN, UserRole.ZELATOR]),
   listRoseMembers
+);
+
+// NOWA TRASA: Usuwanie członka z Róży
+// :membershipId to ID rekordu z tabeli RoseMembership
+router.delete(
+  '/roses/:roseId/members/:membershipId',
+  authenticateToken,
+  authorizeRole([UserRole.ADMIN, UserRole.ZELATOR]), // Admin LUB Zelator tej Róży (sprawdzane w kontrolerze)
+  removeMemberFromRose
 );
 
 export default router;

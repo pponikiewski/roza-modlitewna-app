@@ -4,19 +4,12 @@ import { AuthenticatedRequest } from '../auth/auth.middleware';
 import prisma from '../db';
 import { UserRole } from '../types/user.types';
 
-/**
- * Funkcja pomocnicza sprawdzająca, czy użytkownik ma uprawnienia do zarządzania daną Różą
- * (jest jej Zelatorem LUB jest Adminem).
- * Zakłada, że `requestingUser` nie jest null/undefined, co powinno być zapewnione przez wywołującego.
- */
 async function canManageRose(requestingUser: NonNullable<AuthenticatedRequest['user']>, roseId: string): Promise<boolean> {
-  // Admin może zarządzać każdą Różą
   if (requestingUser.role === UserRole.ADMIN) {
     console.log(`[canManageRose] Użytkownik ${requestingUser.email} jest ADMINEM, ma dostęp do Róży ${roseId}.`);
     return true;
   }
 
-  // Zelator może zarządzać tylko Różami, których jest Zelatorem
   if (requestingUser.role === UserRole.ZELATOR) {
     const rose = await prisma.rose.findUnique({
       where: { id: roseId },
@@ -41,11 +34,11 @@ export const addMemberToRose = async (req: AuthenticatedRequest, res: Response, 
     const { roseId } = req.params;
     const { userIdToAdd } = req.body;
     
-    if (!req.user || !req.user.userId) { // Sprawdzenie, czy obiekt użytkownika i jego ID istnieją
+    if (!req.user) { // Sprawdzenie, czy obiekt użytkownika istnieje
       res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
       return;
     }
-    const requestingUser = req.user; // Od tego momentu `requestingUser` jest typu non-nullable
+    const requestingUser = req.user;
 
     if (!userIdToAdd) {
       res.status(400).json({ error: 'ID użytkownika do dodania jest wymagane.' });
@@ -70,9 +63,6 @@ export const addMemberToRose = async (req: AuthenticatedRequest, res: Response, 
       return;
     }
     
-    // Jeśli Zelator może być członkiem swojej Róży, ten warunek jest usunięty
-    // (zakładamy, że poprzednia zmiana to umożliwiła)
-
     const existingMembership = await prisma.roseMembership.findUnique({
       where: { userId_roseId: { userId: userIdToAdd, roseId: roseId } },
     });
@@ -106,7 +96,7 @@ export const listRoseMembers = async (req: AuthenticatedRequest, res: Response, 
   try {
     const { roseId } = req.params;
 
-    if (!req.user || !req.user.userId) {
+    if (!req.user) {
       res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
       return;
     }
@@ -130,8 +120,8 @@ export const listRoseMembers = async (req: AuthenticatedRequest, res: Response, 
         user: {
           select: { id: true, email: true, name: true, role: true },
         },
-        // Można dodać dołączanie aktualnej tajemnicy i statusu potwierdzenia, jeśli potrzebne
-        // currentAssignedMystery: true,
+        // Można rozważyć dołączenie `currentAssignedMystery` i `mysteryConfirmedAt`
+        // currentAssignedMystery: true, 
         // mysteryConfirmedAt: true,
       },
       orderBy: {
@@ -151,14 +141,13 @@ export const listRoseMembers = async (req: AuthenticatedRequest, res: Response, 
 export const getMyManagedRoses = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   console.log(`[getMyManagedRoses] Próba pobrania Róż dla użytkownika: ${req.user?.email}`);
   try {
-    if (!req.user || !req.user.userId) {
+    if (!req.user) {
       res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
       return;
     }
-    // Od tego momentu TypeScript wie, że req.user i jego właściwości (userId, role, email) są zdefiniowane
     const userId = req.user.userId;
     const userRole = req.user.role;
-    const userEmail = req.user.email; // Dla logowania
+    const userEmail = req.user.email;
 
     let roses;
     if (userRole === UserRole.ADMIN) {
@@ -181,7 +170,6 @@ export const getMyManagedRoses = async (req: AuthenticatedRequest, res: Response
         orderBy: { name: 'asc' }
       });
     } else {
-      // Middleware authorizeRole powinno już to obsłużyć, ale dodajemy zabezpieczenie
       console.log(`[getMyManagedRoses] Użytkownik ${userEmail} z rolą ${userRole} nie ma odpowiednich uprawnień.`);
       res.status(403).json({ error: 'Brak odpowiednich uprawnień do wykonania tej akcji.' });
       return;
@@ -191,6 +179,60 @@ export const getMyManagedRoses = async (req: AuthenticatedRequest, res: Response
     res.json(roses);
   } catch (error) {
     console.error('[getMyManagedRoses] Błąd:', error);
+    next(error);
+  }
+};
+
+// NOWA FUNKCJA: Usuwanie członka z Róży
+export const removeMemberFromRose = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  console.log(`[removeMemberFromRose] Próba usunięcia członkostwa. User: ${req.user?.email}. Params: ${JSON.stringify(req.params)}`);
+  try {
+    const { roseId, membershipId } = req.params;
+    
+    if (!req.user) {
+      res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
+      return;
+    }
+    const requestingUser = req.user;
+
+    const roseExists = await prisma.rose.findUnique({ where: { id: roseId }});
+    if (!roseExists) {
+        res.status(404).json({ error: 'Róża o podanym ID nie istnieje.' });
+        return;
+    }
+
+    const hasPermission = await canManageRose(requestingUser, roseId);
+    if (!hasPermission) {
+      res.status(403).json({ error: 'Nie masz uprawnień do usuwania członków z tej Róży.' });
+      return;
+    }
+
+    const membershipToDelete = await prisma.roseMembership.findUnique({
+      where: { id: membershipId },
+      select: { id: true, roseId: true, userId: true }
+    });
+
+    if (!membershipToDelete) {
+      res.status(404).json({ error: 'Nie znaleziono członkostwa do usunięcia.' });
+      return;
+    }
+
+    if (membershipToDelete.roseId !== roseId) {
+      res.status(400).json({ error: 'Podane członkostwo nie należy do tej Róży.' });
+      return;
+    }
+
+    // Usuwanie członkostwa (dzięki onDelete: Cascade w schemacie Prisma,
+    // powiązane wpisy w AssignedMysteryHistory zostaną usunięte automatycznie)
+    await prisma.roseMembership.delete({
+      where: { id: membershipId },
+    });
+
+    console.log(`[removeMemberFromRose] Pomyślnie usunięto członkostwo ${membershipId} z Róży ${roseId}.`);
+    res.status(200).json({ message: 'Członek został pomyślnie usunięty z Róży.' });
+
+  } catch (error) {
+    console.error('[removeMemberFromRose] Błąd:', error);
     next(error);
   }
 };
