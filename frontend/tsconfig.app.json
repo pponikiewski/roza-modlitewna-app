@@ -15,6 +15,9 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "types": ["vite/client", "react/jsx-runtime"], // Dodajemy "react/jsx-runtime"
+
+    
 
     /* Linting */
     "strict": true,
