@@ -3,7 +3,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import prisma from '../db';
 import { UserRole } from '../types/user.types';
-import { MAX_ROSE_MEMBERS } from '../utils/constants';
+import { MAX_ROSE_MEMBERS, findMysteryById } from '../utils/constants'; // findMysteryById jest z constants
 
 /**
  * Funkcja pomocnicza sprawdzająca, czy użytkownik ma uprawnienia do zarządzania daną Różą
@@ -97,7 +97,6 @@ export const addMemberToRose = async (req: AuthenticatedRequest, res: Response, 
       },
       include: {
          user: { select: { id: true, email: true, name: true, role: true } },
-         // Dołączamy dane Róży do odpowiedzi, aby frontend miał od razu nazwę Róży
          rose: { select: { id: true, name: true, description: true } } 
       }
     });
@@ -122,12 +121,10 @@ export const listRoseMembers = async (req: AuthenticatedRequest, res: Response, 
     }
     const requestingUser = req.user;
    
-    const roseData = await prisma.rose.findUnique({ // Zmieniono nazwę zmiennej dla jasności
+    const roseData = await prisma.rose.findUnique({ 
       where: { id: roseId },
-      // Możemy od razu pobrać nazwę róży tutaj, jeśli będziemy ją zwracać w ogólnej odpowiedzi
-      // select: { name: true, zelatorId: true } // ZelatorId potrzebny dla canManageRose
     }); 
-    if (!roseData) { // Używamy roseData
+    if (!roseData) {
         res.status(404).json({ error: 'Róża o podanym ID nie istnieje.' });
         return;
     }
@@ -144,14 +141,8 @@ export const listRoseMembers = async (req: AuthenticatedRequest, res: Response, 
         user: {
           select: { id: true, email: true, name: true, role: true },
         },
-        rose: { // <<< DOŁĄCZAMY DANE RÓŻY DO KAŻDEGO CZŁONKOSTWA
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            // Możesz też dołączyć Zelatora Róży, jeśli potrzebujesz
-            // zelator: { select: { id: true, name: true, email: true } } 
-          }
+        rose: { 
+          select: { id: true, name: true, description: true }
         }
       },
       orderBy: [
@@ -162,11 +153,7 @@ export const listRoseMembers = async (req: AuthenticatedRequest, res: Response, 
     });
 
     console.log(`[listRoseMembers] Znaleziono ${members.length} członków dla Róży ${roseId}.`);
-    // Jeśli chcesz zwrócić również nazwę róży na najwyższym poziomie odpowiedzi:
-    // res.json({ roseName: roseData.name, members: members });
-    // Ale skoro każdy członek ma teraz dane róży, wystarczy:
     res.json(members);
-
 
   } catch (error) {
     console.error('[listRoseMembers] Błąd:', error);
@@ -266,6 +253,140 @@ export const removeMemberFromRose = async (req: AuthenticatedRequest, res: Respo
 
   } catch (error) {
     console.error('[removeMemberFromRose] Błąd:', error);
+    next(error);
+  }
+};
+
+// --- NOWE FUNKCJE DLA GŁÓWNEJ INTENCJI RÓŻY ---
+
+export const setOrUpdateMainRoseIntention = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { roseId } = req.params;
+  const { text, month, year, isActive } = req.body;
+  const requestingUser = req.user;
+
+  console.log(`[setOrUpdateMainRoseIntention] User: ${requestingUser?.email} próbuje ustawić intencję dla Róży ${roseId}. Dane: ${JSON.stringify(req.body)}`);
+  try {
+    if (!requestingUser) {
+      res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
+      return;
+    }
+
+    if (!text || typeof text !== 'string' || text.trim() === '') {
+      res.status(400).json({ error: 'Treść intencji (text) jest wymagana.' });
+      return;
+    }
+    if (month === undefined || year === undefined || isNaN(parseInt(String(month))) || isNaN(parseInt(String(year)))) {
+      res.status(400).json({ error: 'Miesiąc (month) i rok (year) są wymagane i muszą być liczbami.' });
+      return;
+    }
+    const numMonth = parseInt(String(month));
+    const numYear = parseInt(String(year));
+    if (numMonth < 1 || numMonth > 12) {
+        res.status(400).json({ error: 'Miesiąc musi być liczbą od 1 do 12.' });
+        return;
+    }
+
+    const hasPermission = await canManageRose(requestingUser, roseId);
+    if (!hasPermission) {
+      res.status(403).json({ error: 'Nie masz uprawnień do ustawiania głównej intencji dla tej Róży.' });
+      return;
+    }
+
+    const intentionData = {
+      text: text.trim(),
+      month: numMonth,
+      year: numYear,
+      isActive: isActive !== undefined ? Boolean(isActive) : true,
+      authorId: requestingUser.userId,
+    };
+
+    if (intentionData.isActive) {
+        await prisma.roseMainIntention.updateMany({
+            where: { roseId: roseId, month: numMonth, year: numYear, isActive: true },
+            data: { isActive: false }
+        });
+    }
+
+    const mainIntention = await prisma.roseMainIntention.upsert({
+      where: { roseId_month_year: { roseId: roseId, month: numMonth, year: numYear } },
+      update: intentionData,
+      create: { roseId: roseId, ...intentionData },
+      include: { author: { select: { id: true, name: true, email: true } } }
+    });
+    
+    console.log(`[setOrUpdateMainRoseIntention] Pomyślnie ustawiono/zaktualizowano główną intencję dla Róży ${roseId}.`);
+    res.status(201).json(mainIntention);
+
+  } catch (error) {
+    console.error('[setOrUpdateMainRoseIntention] Błąd:', error);
+    next(error);
+  }
+};
+
+export const getCurrentMainRoseIntention = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { roseId } = req.params;
+  console.log(`[getCurrentMainRoseIntention] Pobieranie aktualnej głównej intencji dla Róży ${roseId}. User: ${req.user?.email}`);
+  try {
+     // Nie ma potrzeby sprawdzania req.user tutaj, bo middleware authenticateToken już to zrobił
+     // dla trasy, która wywołuje ten kontroler.
+
+     const now = new Date();
+     const currentMonth = now.getMonth() + 1;
+     const currentYear = now.getFullYear();
+
+    const mainIntention = await prisma.roseMainIntention.findFirst({
+      where: {
+        roseId: roseId,
+        month: currentMonth,
+        year: currentYear,
+        isActive: true
+      },
+      include: {
+        author: { select: { id: true, name: true, email: true } },
+        rose: { select: { name: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!mainIntention) {
+      res.status(404).json({ message: 'Nie znaleziono aktywnej głównej intencji dla tej Róży na bieżący miesiąc.' });
+      return;
+    }
+    
+    console.log(`[getCurrentMainRoseIntention] Znaleziono aktualną główną intencję dla Róży ${roseId}.`);
+    res.json(mainIntention);
+
+  } catch (error) {
+    console.error('[getCurrentMainRoseIntention] Błąd:', error);
+    next(error);
+  }
+};
+
+export const listMainIntentionsForRose = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { roseId } = req.params;
+  console.log(`[listMainIntentionsForRose] Pobieranie historii głównych intencji dla Róży ${roseId}. User: ${req.user?.email}`);
+  try {
+    if (!req.user) { /* ... obsługa braku użytkownika ... */ return; }
+
+    // TODO: Dodać sprawdzenie uprawnień, np. czy użytkownik jest członkiem Róży lub Zelatorem/Adminem
+    // const hasPermission = await canViewRoseContent(req.user, roseId); // Przykładowa funkcja
+    // if (!hasPermission) { /* ... błąd 403 ... */ return; }
+
+    const intentions = await prisma.roseMainIntention.findMany({
+      where: { roseId: roseId },
+      orderBy: [{ year: 'desc' }, { month: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        author: { select: { id: true, name: true, email: true } }
+      }
+    });
+
+    if (!intentions || intentions.length === 0) {
+      res.status(404).json({ message: 'Nie znaleziono głównych intencji dla tej Róży.' });
+      return;
+    }
+    res.json(intentions);
+  } catch (error) {
+    console.error('[listMainIntentionsForRose] Błąd:', error);
     next(error);
   }
 };
