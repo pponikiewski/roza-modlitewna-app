@@ -6,70 +6,124 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL") // Pobiera URL bazy danych ze zmiennej środowiskowej
 }
 
+// --- Model Użytkownika ---
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  password  String
-  role      String   @default("MEMBER")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String   @id @default(cuid()) // Unikalne ID generowane przez Prisma
+  email     String   @unique              // Email musi być unikalny
+  name      String?                       // Opcjonalne imię użytkownika
+  password  String                        // Zahashowane hasło
+  role      String   @default("MEMBER")   // Rola użytkownika (ADMIN, ZELATOR, MEMBER)
+  createdAt DateTime @default(now())      // Data utworzenia rekordu
+  updatedAt DateTime @updatedAt           // Data ostatniej aktualizacji rekordu
 
-  rosesManaged    Rose[]
-  roseMemberships RoseMembership[]
+  // Relacje
+  rosesManaged          Rose[]                @relation("ZelatorToRose") // Róże, którymi użytkownik zarządza jako Zelator
+  roseMemberships       RoseMembership[]      // Członkostwa użytkownika w Różach
+  userIntentions        UserIntention[]       // Intencje stworzone przez tego użytkownika
+  createdMainIntentions RoseMainIntention[]   // Główne intencje Róż stworzone przez tego użytkownika (Admina/Zelatora)
 }
 
+// --- Model Róży Różańcowej ---
 model Rose {
   id          String   @id @default(cuid())
-  name        String
-  description String?
+  name        String                        // Nazwa Róży
+  description String?                       // Opcjonalny opis Róży
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  currentRotationOffset Int @default(0)     // Aktualny offset dla rotacji tajemnic w tej Róży
+
+  // Relacja do Zelatora (jeden Zelator na Różę)
   zelatorId String
-  zelator   User   @relation(fields: [zelatorId], references: [id])
+  zelator   User   @relation("ZelatorToRose", fields: [zelatorId], references: [id])
 
-  members RoseMembership[]
-
-  // NOWE POLE: Offset rotacji dla tej Róży (0 do 19)
-  // Będzie inkrementowany co miesiąc.
-  currentRotationOffset Int @default(0) 
+  // Relacje do innych modeli
+  members               RoseMembership[]      // Lista członkostw w tej Róży
+  mainIntentions        RoseMainIntention[]   // Lista głównych intencji dla tej Róży
+  sharedUserIntentions  UserIntention[]       // Lista intencji użytkowników udostępnionych tej Róży
 }
 
+// --- Model Członkostwa w Róży ---
 model RoseMembership {
   id        String   @id @default(cuid())
-  userId    String
-  roseId    String
+  userId    String                        // ID użytkownika (członka)
+  roseId    String                        // ID Róży
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  currentAssignedMystery String?
-  mysteryConfirmedAt     DateTime?
-  
-  // NOWE/ZAKTUALIZOWANE OPCJONALNE POLE:
-  mysteryOrderIndex      Int? // Pozycja członka w Róży (0-19) dla rotacji tajemnic
+  currentAssignedMystery String?            // ID aktualnie przydzielonej tajemnicy (np. "radosna_1")
+  mysteryConfirmedAt     DateTime?          // Data potwierdzenia zapoznania się z tajemnicą
+  mysteryOrderIndex      Int?               // Pozycja członka w Róży dla deterministycznej rotacji (0-19)
 
-  user User @relation(fields: [userId], references: [id])
-  rose Rose @relation(fields: [roseId], references: [id])
+  // Relacje
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade) // Jeśli użytkownik jest usunięty, usuń też jego członkostwa
+  rose Rose @relation(fields: [roseId], references: [id], onDelete: Cascade) // Jeśli Róża jest usunięta, usuń też członkostwa
 
-  mysteryHistory AssignedMysteryHistory[]
+  mysteryHistory AssignedMysteryHistory[] // Historia przydzielonych tajemnic dla tego członkostwa
 
-  @@unique([userId, roseId])
-  @@index([roseId, mysteryOrderIndex]) // Opcjonalny indeks
+  // Ograniczenia i Indeksy
+  @@unique([userId, roseId]) // Użytkownik może być członkiem danej Róży tylko raz
+  @@index([roseId, mysteryOrderIndex]) // Indeks dla szybszego sortowania/filtrowania po kolejności w Róży
 }
 
+// --- Model Historii Przydzielonych Tajemnic ---
 model AssignedMysteryHistory {
   id            String   @id @default(cuid())
-  membershipId  String
-  mystery       String
-  assignedMonth Int
-  assignedYear  Int
-  assignedAt    DateTime @default(now())
+  membershipId  String                        // ID członkostwa, do którego należy ten wpis historii
+  mystery       String                        // ID przydzielonej tajemnicy
+  assignedMonth Int                           // Miesiąc przydziału (1-12)
+  assignedYear  Int                           // Rok przydziału
+  assignedAt    DateTime @default(now())      // Dokładna data i czas przydziału
 
-  membership RoseMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  // Relacje
+  membership RoseMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade) // Jeśli członkostwo usunięte, usuń też wpisy historii
 
+  // Indeksy
   @@index([membershipId])
+}
+
+// --- Model Głównej Intencji Róży ---
+model RoseMainIntention {
+  id          String    @id @default(cuid())
+  roseId      String                        // ID Róży, do której należy intencja
+  text        String    @db.Text              // Treść intencji (dłuższy tekst)
+  month       Int                           // Miesiąc, na który jest intencja (1-12)
+  year        Int                           // Rok, na który jest intencja
+  isActive    Boolean   @default(true)        // Czy to jest aktualnie aktywna intencja dla tego miesiąca/Róży?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  authorId    String?                       // Opcjonalne ID autora (Admina/Zelatora)
+
+  // Relacje
+  rose        Rose      @relation(fields: [roseId], references: [id], onDelete: Cascade)
+  author      User?     @relation(fields: [authorId], references: [id], onDelete: SetNull) // Jeśli autor usunięty, jego ID w intencji staje się null
+
+  // Ograniczenia i Indeksy
+  @@unique([roseId, month, year]) // Zapewnia, że jest tylko jedna główna intencja na miesiąc/rok dla danej Róży
+  @@index([roseId])
+  @@index([authorId])
+}
+
+// --- Model Intencji Użytkownika ---
+model UserIntention {
+  id          String    @id @default(cuid())
+  authorId    String                        // ID użytkownika, który stworzył intencję
+  text        String    @db.Text              // Treść intencji
+  isPublic    Boolean   @default(false)       // Czy intencja jest publiczna dla wszystkich (nieużywane w tym projekcie)
+  isSharedWithRose Boolean @default(false)    // Czy intencja jest udostępniona konkretnej Róży?
+  sharedWithRoseId String?                   // Opcjonalne ID Róży, z którą intencja jest udostępniona
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relacje
+  author          User    @relation(fields: [authorId], references: [id], onDelete: Cascade) // Jeśli autor usunięty, jego intencje też są usuwane
+  sharedWithRose  Rose?   @relation(fields: [sharedWithRoseId], references: [id], onDelete: SetNull) // Jeśli Róża usunięta, intencja traci powiązanie z Różą
+
+  // Indeksy
+  @@index([authorId])
+  @@index([sharedWithRoseId])
 }
