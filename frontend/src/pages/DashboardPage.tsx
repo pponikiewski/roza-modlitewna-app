@@ -2,11 +2,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
-import type { UserMembership, MysteryHistoryResponse, MysteryHistoryEntry } from '../types/rosary.types';
-import { Link as RouterLink } from 'react-router-dom'; // Jeśli będziesz dodawał linki do szczegółów
+import type { 
+    UserMembership, 
+    MysteryHistoryResponse, 
+    MysteryHistoryEntry, 
+    UserIntention, 
+    // RoseMainIntentionData, // Ten typ jest zawarty w UserMembership.currentMainIntentionForRose
+    // RosaryMysteryDetails // Ten typ jest zawarty w UserMembership.currentMysteryFullDetails
+} from '../types/rosary.types';
+import { Link as RouterLink } from 'react-router-dom';
 
 const DashboardPage: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuth(); 
   
   const [myMemberships, setMyMemberships] = useState<UserMembership[]>([]);
   const [isLoadingMemberships, setIsLoadingMemberships] = useState(true);
@@ -17,31 +24,69 @@ const DashboardPage: React.FC = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
-  const [confirmError, setConfirmError] = useState<string | null>(null); // Błąd specyficzny dla potwierdzenia
-  const [isConfirming, setIsConfirming] = useState<string | null>(null); // Przechowuje ID członkostwa, które jest potwierdzane
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [isConfirming, setIsConfirming] = useState<string | null>(null);
 
-  // Pobieranie listy członkostw użytkownika
+  const [myIntentions, setMyIntentions] = useState<UserIntention[]>([]);
+  const [isLoadingIntentions, setIsLoadingIntentions] = useState(true); // Domyślnie true
+  const [intentionsError, setIntentionsError] = useState<string | null>(null);
+  const [newIntentionText, setNewIntentionText] = useState('');
+  const [shareWithRoseId, setShareWithRoseId] = useState<string>('');
+  const [isAddingIntention, setIsAddingIntention] = useState(false);
+  const [addIntentionError, setAddIntentionError] = useState<string | null>(null);
+  const [addIntentionSuccess, setAddIntentionSuccess] = useState<string | null>(null);
+
   const fetchMyMemberships = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+        setIsLoadingMemberships(false); // Zakończ ładowanie, jeśli nie ma usera
+        return;
+    }
     setIsLoadingMemberships(true);
     setMembershipsError(null);
     try {
-      // ZAKTUALIZOWANY ENDPOINT: Teraz GET /me/memberships
-      const response = await apiClient.get<UserMembership[]>('/me/memberships');
+      const response = await apiClient.get<UserMembership[]>('/me/memberships'); // Zmieniony URL
       setMyMemberships(response.data);
     } catch (err: any) {
-      console.error("Błąd pobierania członkostw użytkownika:", err);
+      console.error("Błąd pobierania członkostw użytkownika (fetchMyMemberships):", err);
       setMembershipsError(err.response?.data?.error || 'Nie udało się pobrać listy Twoich Róż.');
+      setMyMemberships([]); // Wyczyść w razie błędu, aby nie wyświetlać starych danych
     } finally {
       setIsLoadingMemberships(false);
+    }
+  }, [user]);
+
+  const fetchMyIntentions = useCallback(async () => {
+    if (!user) {
+        setIsLoadingIntentions(false); // Zakończ ładowanie
+        return;
+    }
+    setIsLoadingIntentions(true);
+    setIntentionsError(null);
+    try {
+        const response = await apiClient.get<UserIntention[]>('/me/intentions');
+        setMyIntentions(response.data);
+    } catch (err: any) {
+        // Linia 64, o której wspominałeś, jest prawdopodobnie tutaj w bloku catch
+        console.error("Błąd pobierania intencji użytkownika (fetchMyIntentions):", err); 
+        setIntentionsError(err.response?.data?.error || 'Nie udało się pobrać Twoich intencji.');
+        setMyIntentions([]); // Wyczyść w razie błędu
+    } finally {
+        setIsLoadingIntentions(false);
     }
   }, [user]);
 
   useEffect(() => {
     if (user) {
       fetchMyMemberships();
+      fetchMyIntentions();
+    } else {
+        // Jeśli użytkownik nie jest dostępny (np. wylogowanie), wyczyść dane
+        setMyMemberships([]);
+        setMyIntentions([]);
+        setIsLoadingMemberships(false);
+        setIsLoadingIntentions(false);
     }
-  }, [user, fetchMyMemberships]);
+  }, [user, fetchMyMemberships, fetchMyIntentions]);
 
 
   const handleConfirmMystery = async (membershipIdToConfirm: string, currentMysteryId: string | null) => {
@@ -52,7 +97,6 @@ const DashboardPage: React.FC = () => {
      setIsConfirming(membershipIdToConfirm);
      setConfirmError(null);
      try {
-         // ZAKTUALIZOWANY ENDPOINT: Teraz PATCH /me/memberships/:membershipId/confirm-mystery
          const response = await apiClient.patch<UserMembership>(`/me/memberships/${membershipIdToConfirm}/confirm-mystery`);
          setMyMemberships(prevMemberships => 
             prevMemberships.map(memb => 
@@ -71,7 +115,7 @@ const DashboardPage: React.FC = () => {
   
   const fetchMysteryHistory = async (membership: UserMembership) => {
      if (!membership || !membership.id) {
-         setHistoryError('Brak informacji o członkostwie, aby pobrać historię.');
+         setHistoryError('Brak informacji o członkostwiem, aby pobrać historię.');
          return;
      }
      setSelectedMembershipForHistory(membership);
@@ -79,7 +123,6 @@ const DashboardPage: React.FC = () => {
      setHistoryError(null);
      setMysteryHistory(null);
      try {
-         // ZAKTUALIZOWANY ENDPOINT: Teraz GET /me/memberships/:membershipId/mystery-history
          const response = await apiClient.get<MysteryHistoryResponse>(`/me/memberships/${membership.id}/mystery-history`);
          setMysteryHistory(response.data.history);
      } catch (err:any) {
@@ -91,129 +134,256 @@ const DashboardPage: React.FC = () => {
      }
   };
 
-  if (!user) {
+  const handleAddIntentionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newIntentionText.trim()) {
+        setAddIntentionError("Treść intencji nie może być pusta.");
+        return;
+    }
+    if (shareWithRoseId && myMemberships.find(m => m.rose.id === shareWithRoseId) === undefined && user?.role !== 'ADMIN') {
+        setAddIntentionError("Wybrano nieprawidłową Różę do udostępnienia lub nie należysz do tej Róży.");
+        return;
+    }
+
+    setIsAddingIntention(true);
+    setAddIntentionError(null);
+    setAddIntentionSuccess(null);
+    try {
+        const payload: { text: string; isSharedWithRose: boolean; sharedWithRoseId?: string } = {
+            text: newIntentionText,
+            isSharedWithRose: !!shareWithRoseId,
+        };
+        if (shareWithRoseId) {
+            payload.sharedWithRoseId = shareWithRoseId;
+        }
+
+        await apiClient.post<UserIntention>('/me/intentions', payload);
+        setAddIntentionSuccess("Intencja została pomyślnie dodana.");
+        setNewIntentionText('');
+        setShareWithRoseId('');
+        fetchMyIntentions();
+        setTimeout(() => setAddIntentionSuccess(null), 3000);
+    } catch (err: any) {
+        setAddIntentionError(err.response?.data?.error || "Nie udało się dodać intencji.");
+    } finally {
+        setIsAddingIntention(false);
+    }
+  };
+     
+  if (!user) { // Ten warunek powinien być obsłużony przez ProtectedRoute w App.tsx
     return <p className="p-8 text-center text-red-600">Błąd: Brak danych użytkownika. Proszę się zalogować.</p>;
   }
 
-  if (isLoadingMemberships && myMemberships.length === 0) { // Pokaż ładowanie tylko jeśli lista jest pusta
-    return <div className="p-8 text-center text-xl">Ładowanie Twoich danych...</div>;
+  // Główny ekran ładowania, jeśli jeszcze nie ma danych o członkostwach ANI intencjach
+  if (isLoadingMemberships || isLoadingIntentions) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]">
+            <div className="text-xl text-gray-700">Ładowanie Twoich danych...</div>
+            {/* Można tu dodać bardziej zaawansowany spinner/loader */}
+        </div>
+    );
   }
 
   return (
-    <div className="p-4 md:p-8 bg-slate-100 min-h-screen">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 pb-4 border-b border-gray-300">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2 sm:mb-0">
-            Witaj, {user.name || user.email}!
-          </h1>
-          {/* Przycisk wylogowania jest teraz w App.tsx w nawigacji */}
+    <div className="p-4 md:p-8 bg-slate-100">
+      <div className="max-w-4xl mx-auto space-y-8">
+        
+        <div className="bg-white p-6 rounded-lg shadow-xl">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
+                Witaj, {user.name || user.email}!
+            </h1>
+            <p className="text-sm text-gray-500">Twoja rola w systemie: <span className="font-semibold">{user.role}</span></p>
         </div>
 
-        {membershipsError && <p className="mb-4 p-3 text-red-700 bg-red-100 border border-red-300 rounded-md">{membershipsError}</p>}
+        {membershipsError && <p className="p-3 text-red-700 bg-red-100 border border-red-300 rounded-md">{membershipsError}</p>}
         
-        {myMemberships.length === 0 && !isLoadingMemberships && !membershipsError && (
-            <div className="bg-white p-6 rounded-lg shadow-lg text-center">
-                <p className="text-gray-700 text-lg">Nie należysz jeszcze do żadnej Róży.</p>
-                <p className="text-gray-500 mt-2">Skontaktuj się z Zelatorem lub Administratorem, aby dołączyć do Róży.</p>
+        {/* Sekcja Twoich Róż */}
+        {myMemberships.length > 0 ? (
+            myMemberships.map(membership => (
+            <div key={membership.id} className="bg-white p-6 rounded-lg shadow-xl">
+                <div className="border-b border-gray-200 pb-4 mb-4">
+                    <h2 className="text-xl sm:text-2xl font-semibold text-indigo-700 mb-1">
+                    {membership.rose.name}
+                    </h2>
+                    {membership.rose.description && <p className="text-sm text-gray-600 italic">"{membership.rose.description}"</p>}
+                    <p className="text-xs text-gray-500 mt-1">
+                        Zelator: {membership.rose.zelator.name || membership.rose.zelator.email}
+                    </p>
+                </div>
+                
+                {membership.currentMainIntentionForRose ? (
+                <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-md">
+                    <h4 className="text-sm font-semibold text-amber-800 mb-1">Główna Intencja tej Róży (ten miesiąc):</h4>
+                    <p className="text-amber-700 text-sm whitespace-pre-wrap">{membership.currentMainIntentionForRose.text}</p>
+                    {membership.currentMainIntentionForRose.author && (
+                        <p className="text-xs text-amber-600 mt-1.5">
+                            Ustawiona przez: {membership.currentMainIntentionForRose.author.name || membership.currentMainIntentionForRose.author.email}
+                        </p>
+                    )}
+                </div>
+                ) : (
+                <p className="mb-6 text-sm text-gray-500 italic">Brak ustawionej głównej intencji dla tej Róży na bieżący miesiąc.</p>
+                )}
+
+                {membership.currentMysteryFullDetails ? (
+                <div className="mb-6">
+                    <h3 className="text-lg md:text-xl font-semibold text-blue-700">{membership.currentMysteryFullDetails.name}</h3>
+                    <p className="text-xs text-gray-500 mb-3">({membership.currentMysteryFullDetails.group})</p>
+                    
+                    {membership.currentMysteryFullDetails.imageUrl && (
+                    <img 
+                        src={membership.currentMysteryFullDetails.imageUrl} 
+                        alt={`Grafika dla ${membership.currentMysteryFullDetails.name}`} 
+                        className="w-full max-w-xs sm:max-w-sm mx-auto h-auto rounded-lg shadow-md mb-4 object-contain" 
+                        style={{maxHeight: '200px'}}
+                    />
+                    )}
+
+                    <div className="bg-blue-50 p-3 rounded-md mb-4 border border-blue-100">
+                    <h4 className="font-semibold text-blue-800 mb-1 text-sm">Rozważanie:</h4>
+                    <p className="text-gray-700 text-sm whitespace-pre-wrap">{membership.currentMysteryFullDetails.contemplation}</p>
+                    </div>
+
+                    {confirmError && isConfirming === membership.id && <p className="mb-2 p-2 text-xs text-red-600 bg-red-100 rounded">{confirmError}</p>}
+                    {membership.mysteryConfirmedAt ? (
+                    <p className="text-green-600 bg-green-100 p-2.5 rounded-md text-sm font-medium inline-block">
+                        Potwierdzono: {new Date(membership.mysteryConfirmedAt).toLocaleString('pl-PL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    ) : (
+                    <button
+                        onClick={() => handleConfirmMystery(membership.id, membership.currentMysteryFullDetails!.id)}
+                        disabled={isConfirming === membership.id}
+                        className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-green-500 disabled:opacity-60"
+                    >
+                        {isConfirming === membership.id ? 'Potwierdzanie...' : 'Potwierdzam zapoznanie się'}
+                    </button>
+                    )}
+                </div>
+                ) : (
+                <p className="text-gray-600 mt-4 py-2">Nie masz jeszcze przydzielonej tajemnicy w tej Róży. Poczekaj na przydział.</p>
+                )}
+
+                <div className="mt-6 border-t border-gray-200 pt-4">
+                    {selectedMembershipForHistory?.id === membership.id && isLoadingHistory ? (
+                        <p className="text-sm text-gray-600">Ładowanie historii...</p>
+                    ) : selectedMembershipForHistory?.id === membership.id && mysteryHistory ? (
+                        <>
+                            <button onClick={() => { setMysteryHistory(null); setSelectedMembershipForHistory(null); }} className="text-sm text-blue-600 hover:underline mb-3 block">Ukryj historię</button>
+                            {historyError && <p className="mb-2 p-2 text-xs text-red-600 bg-red-100 rounded">{historyError}</p>}
+                            {mysteryHistory.length > 0 ? (
+                                <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
+                                    {mysteryHistory.map(entry => (
+                                    <div key={entry.id} className="p-2.5 bg-gray-100 rounded-md text-xs">
+                                        <p className="font-medium text-gray-800">{entry.mysteryDetails?.name || `Tajemnica ID: ${entry.mystery}`}</p>
+                                        <p className="text-gray-500">{entry.mysteryDetails?.group}</p>
+                                        <p className="text-gray-500">
+                                            Przydzielono: {entry.assignedMonth}/{entry.assignedYear} 
+                                            <span className="text-gray-400"> ({new Date(entry.assignedAt).toLocaleDateString('pl-PL')})</span>
+                                        </p>
+                                    </div>
+                                    ))}
+                                </div>
+                            ) : <p className="text-sm text-gray-500">Brak historii przydzielonych tajemnic dla tej Róży.</p>}
+                        </>
+                    ) : (
+                        <button onClick={() => fetchMysteryHistory(membership)} className="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                            Pokaż historię tej Róży
+                        </button>
+                    )}
+                </div>
             </div>
+            ))
+        ) : (
+            !isLoadingMemberships && !membershipsError && (
+                <div className="bg-white p-6 rounded-lg shadow-lg text-center">
+                    <p className="text-gray-700 text-lg">Nie należysz jeszcze do żadnej Róży.</p>
+                    <p className="text-gray-500 mt-2">Skontaktuj się z Zelatorem lub Administratorem, aby dołączyć do Róży.</p>
+                </div>
+            )
         )}
 
-        {myMemberships.map(membership => (
-          <div key={membership.id} className="bg-white p-6 rounded-lg shadow-xl mb-8">
-            <div className="border-b border-gray-200 pb-4 mb-4">
-                <h2 className="text-xl sm:text-2xl font-semibold text-indigo-700 mb-1">
-                {membership.rose.name}
-                </h2>
-                {membership.rose.description && <p className="text-sm text-gray-600 italic">"{membership.rose.description}"</p>}
-                <p className="text-xs text-gray-500 mt-1">
-                    Zelator: {membership.rose.zelator.name || membership.rose.zelator.email}
-                </p>
-            </div>
+        {/* Sekcja Moje Intencje Osobiste */}
+        <div className="bg-white p-6 rounded-lg shadow-xl mt-8">
+          <h2 className="text-2xl font-semibold text-gray-700 mb-5 border-b pb-3">Moje Intencje Osobiste</h2>
+          
+          <form onSubmit={handleAddIntentionSubmit} className="mb-6 p-4 bg-slate-50 rounded-md border">
+            <h3 className="text-lg font-medium text-gray-800 mb-3">Dodaj nową intencję:</h3>
+            {addIntentionError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{addIntentionError}</p>}
+            {addIntentionSuccess && <p className="mb-3 p-2 text-sm text-green-600 bg-green-100 rounded">{addIntentionSuccess}</p>}
             
-            {membership.currentMainIntentionForRose ? (
-              <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-md">
-                <h4 className="text-sm font-semibold text-amber-800 mb-1">Główna Intencja tej Róży (ten miesiąc):</h4>
-                <p className="text-amber-700 text-sm whitespace-pre-wrap">{membership.currentMainIntentionForRose.text}</p>
-                {membership.currentMainIntentionForRose.author && (
-                    <p className="text-xs text-amber-600 mt-1.5">
-                        Ustawiona przez: {membership.currentMainIntentionForRose.author.name || membership.currentMainIntentionForRose.author.email}
-                    </p>
-                )}
-              </div>
-            ) : (
-              <p className="mb-6 text-sm text-gray-500 italic">Brak ustawionej głównej intencji dla tej Róży na bieżący miesiąc.</p>
-            )}
-
-            {membership.currentMysteryFullDetails ? (
-              <div className="mb-6">
-                <h3 className="text-lg md:text-xl font-semibold text-blue-700">{membership.currentMysteryFullDetails.name}</h3>
-                <p className="text-xs text-gray-500 mb-3">({membership.currentMysteryFullDetails.group})</p>
-                
-                {membership.currentMysteryFullDetails.imageUrl && (
-                   <img 
-                       src={membership.currentMysteryFullDetails.imageUrl} 
-                       alt={`Grafika dla ${membership.currentMysteryFullDetails.name}`} 
-                       className="w-full max-w-xs sm:max-w-sm mx-auto h-auto rounded-lg shadow-md mb-4 object-contain" 
-                       style={{maxHeight: '200px'}}
-                   />
-                )}
-
-                <div className="bg-blue-50 p-3 rounded-md mb-4 border border-blue-100">
-                   <h4 className="font-semibold text-blue-800 mb-1 text-sm">Rozważanie:</h4>
-                   <p className="text-gray-700 text-sm whitespace-pre-wrap">{membership.currentMysteryFullDetails.contemplation}</p>
-                </div>
-
-                {confirmError && isConfirming === membership.id && <p className="mb-2 p-2 text-xs text-red-600 bg-red-100 rounded">{confirmError}</p>}
-                {membership.mysteryConfirmedAt ? (
-                  <p className="text-green-600 bg-green-100 p-2.5 rounded-md text-sm font-medium inline-block">
-                    Potwierdzono: {new Date(membership.mysteryConfirmedAt).toLocaleString('pl-PL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                ) : (
-                  <button
-                    onClick={() => handleConfirmMystery(membership.id, membership.currentMysteryFullDetails!.id)} // Używamy ID tajemnicy dla pewności
-                    disabled={isConfirming === membership.id}
-                    className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-green-500 disabled:opacity-60"
-                  >
-                    {isConfirming === membership.id ? 'Potwierdzanie...' : 'Potwierdzam zapoznanie się'}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-600 mt-4 py-2">Nie masz jeszcze przydzielonej tajemnicy w tej Róży. Poczekaj na przydział.</p>
-            )}
-
-            <div className="mt-6 border-t border-gray-200 pt-4">
-                {selectedMembershipForHistory?.id === membership.id && isLoadingHistory ? (
-                    <p className="text-sm text-gray-600">Ładowanie historii...</p>
-                ) : selectedMembershipForHistory?.id === membership.id && mysteryHistory ? (
-                    <>
-                        <button onClick={() => { setMysteryHistory(null); setSelectedMembershipForHistory(null); }} className="text-sm text-blue-600 hover:underline mb-3 block">Ukryj historię</button>
-                        {historyError && <p className="mb-2 p-2 text-xs text-red-600 bg-red-100 rounded">{historyError}</p>}
-                        {mysteryHistory.length > 0 ? (
-                            <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
-                                {mysteryHistory.map(entry => (
-                                <div key={entry.id} className="p-2.5 bg-gray-100 rounded-md text-xs">
-                                    <span className="font-medium text-gray-800">{entry.mysteryDetails?.name || `Tajemnica ID: ${entry.mystery}`}</span>
-                                    <span className="text-gray-500 ml-2">({entry.mysteryDetails?.group})</span>
-                                    <p className="text-gray-500">
-                                        Przydzielono: {entry.assignedMonth}/{entry.assignedYear} 
-                                        <span className="text-gray-400"> ({new Date(entry.assignedAt).toLocaleDateString('pl-PL')})</span>
-                                    </p>
-                                </div>
-                                ))}
-                            </div>
-                        ) : <p className="text-sm text-gray-500">Brak historii przydzielonych tajemnic dla tej Róży.</p>}
-                    </>
-                ) : (
-                    <button onClick={() => fetchMysteryHistory(membership)} className="text-sm text-blue-600 hover:text-blue-800 hover:underline">
-                        Pokaż historię tej Róży
-                    </button>
-                )}
+            <div className="mb-4">
+                <label htmlFor="newIntentionText" className="block text-sm font-medium text-gray-700">Treść intencji:</label>
+                <textarea
+                    id="newIntentionText"
+                    rows={3}
+                    value={newIntentionText}
+                    onChange={(e) => setNewIntentionText(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="Wpisz treść swojej intencji..."
+                    required
+                />
             </div>
-          </div>
-        ))}
-        {/* Usunięto sekcję "Aktualnej Tajemnicy", która bazowała na currentMysteryInfo,
-            ponieważ teraz wszystko jest w pętli myMemberships. */}
+            {myMemberships.length > 0 && (
+                <div className="mb-4">
+                    <label htmlFor="shareWithRoseId" className="block text-sm font-medium text-gray-700">
+                        Udostępnij Róży (opcjonalnie):
+                    </label>
+                    <select
+                        id="shareWithRoseId"
+                        value={shareWithRoseId}
+                        onChange={(e) => setShareWithRoseId(e.target.value)}
+                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                    >
+                        <option value="">-- Nie udostępniaj (intencja prywatna) --</option>
+                        {myMemberships.map(membership => (
+                            <option key={membership.rose.id} value={membership.rose.id}>
+                                {membership.rose.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+            <button
+                type="submit"
+                disabled={isAddingIntention}
+                className="w-full sm:w-auto px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60"
+            >
+                {isAddingIntention ? 'Dodawanie...' : 'Dodaj Intencję'}
+            </button>
+          </form>
+
+          {isLoadingIntentions ? (
+            <p className="text-gray-600 text-center py-4">Ładowanie Twoich intencji...</p>
+          ) : intentionsError ? (
+            <p className="text-red-500 bg-red-100 p-3 rounded-md">{intentionsError}</p>
+          ) : myIntentions.length === 0 ? (
+            <p className="text-gray-600 text-center py-4">Nie masz jeszcze żadnych zapisanych intencji.</p>
+          ) : (
+            <div className="space-y-3">
+                {myIntentions.map(intention => (
+                    <div key={intention.id} className="p-3 bg-gray-50 rounded-md border border-gray-200">
+                        <p className="text-gray-800 whitespace-pre-wrap">{intention.text}</p>
+                        <div className="text-xs text-gray-500 mt-2 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                            <span>Dodano: {new Date(intention.createdAt).toLocaleDateString('pl-PL')}</span>
+                            {intention.isSharedWithRose && intention.sharedWithRose ? (
+                                <span className="mt-1 sm:mt-0 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                                    Udostępniono Róży: {intention.sharedWithRose.name}
+                                </span>
+                            ) : (
+                                <span className="mt-1 sm:mt-0 px-2 py-0.5 bg-slate-200 text-slate-700 rounded-full text-xs">
+                                    Prywatna
+                                </span>
+                            )}
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-gray-100 space-x-3">
+                            <button className="text-xs text-blue-600 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed" disabled>Edytuj (TODO)</button>
+                            <button className="text-xs text-red-600 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed" disabled>Usuń (TODO)</button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+          )}
+        </div> {/* Koniec sekcji Moje Intencje */}
       </div>
     </div>
   );

@@ -4,6 +4,9 @@ import { AuthenticatedRequest } from '../auth/auth.middleware';
 import prisma from '../db';
 import { findMysteryById, RosaryMystery } from '../utils/constants'; // Upewnij się, że RosaryMystery jest tu typem obiektu
 
+console.log("ŁADOWANIE PLIKU: member.controller.ts"); // <<<< DODAJ TEN LOG
+
+
 export const getCurrentMysteryInfo = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   console.log(`[getCurrentMysteryInfo] Użytkownik ${req.user?.email} pobiera aktualną tajemnicę (pierwsze członkostwo).`);
   try {

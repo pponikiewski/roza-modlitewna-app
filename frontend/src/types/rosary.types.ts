@@ -95,3 +95,23 @@ export interface UserMembership {
     currentMysteryFullDetails: RosaryMysteryDetails | null;
     currentMainIntentionForRose: RoseMainIntentionData | null; // <<<< NOWE POLE
 }
+
+export interface UserIntention {
+  id: string;
+  authorId: string; // Zawsze będzie ID zalogowanego użytkownika
+  text: string;
+  isSharedWithRose: boolean;
+  sharedWithRoseId?: string | null; // Opcjonalne ID Róży
+  createdAt: string; // Data jako string ISO
+  updatedAt: string; // Data jako string ISO
+  // Dołączone dane, jeśli API je zwraca:
+  author?: { // Zazwyczaj niepotrzebne, bo to intencje zalogowanego usera
+    id: string;
+    name?: string | null;
+    email: string;
+  };
+  sharedWithRose?: { // Jeśli udostępniona, podstawowe info o Róży
+    id: string;
+    name: string;
+  } | null;
+}

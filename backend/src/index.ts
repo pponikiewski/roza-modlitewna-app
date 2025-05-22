@@ -105,6 +105,11 @@ app.get(
 );
 console.log('Trasa GET /users zarejestrowana.');
 
+
+app.get('/me/my-memberships', (req, res) => {
+  console.log("TESTOWY ENDPOINT /me/my-memberships WYWOŁANY");
+  res.status(200).json({ message: "Testowy endpoint działa!" });
+});
 // --- Globalny Error Handler ---
 // Musi być zdefiniowany jako ostatni, po wszystkich app.use() i trasach.
 app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
