@@ -9,8 +9,9 @@ import ManagedRoseDetailsPage from './pages/ManagedRoseDetailsPage';
 import AdminPanelPage from './pages/AdminPanelPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminRosesPage from './pages/AdminRosesPage';
+import MyIntentionsPage from './pages/MyIntentionsPage'; // Import nowej strony
 import { useAuth } from "./contexts/AuthContext";
-import { UserRoles, type UserRole } from './types/user.types'; // Upewnij się, że ten plik istnieje i poprawnie eksportuje typy/enumy
+import { UserRoles, type UserRole } from './types/user.types';
 
 
 // Komponent chronionej trasy
@@ -18,7 +19,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement; allowedRoles?: Us
   const { user, token, isLoading } = useAuth();
   
   if (isLoading) {
-    return <div className="flex flex-grow items-center justify-center text-xl">Ładowanie sesji...</div>; // flex-grow, aby zajął dostępną przestrzeń
+    return <div className="flex flex-grow items-center justify-center text-xl">Ładowanie sesji...</div>;
   }
   
   if (!token || !user) {
@@ -39,7 +40,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement; allowedRoles?: Us
       </div>
     );
   }
-  return children; // Dziecko samo powinno zarządzać swoim rozciąganiem (np. flex-grow jeśli jest częścią flex layoutu)
+  return children;
 };
 
 
@@ -48,14 +49,12 @@ const PublicRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =
   const { token, isLoading } = useAuth();
 
   if (isLoading) {
-    // flex-grow, aby zajął dostępną przestrzeń w głównym kontenerze flex
     return <div className="flex flex-grow items-center justify-center text-xl">Ładowanie sesji...</div>;
   }
 
   if (token) {
     return <Navigate to="/dashboard" replace />;
   }
-  // Dziecko (np. LoginPage) samo zarządza swoim wyglądem (np. min-h-screen, jeśli ma zajmować cały ekran)
   return children;
 };
 
@@ -63,7 +62,7 @@ const PublicRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =
 function App() {
   const { isLoading, user, logout } = useAuth();
 
-  if (isLoading && !user) { // Pokaż pełnoekranowe ładowanie tylko na początku, gdy nie ma jeszcze usera
+  if (isLoading && !user) {
     return (
       <div className="flex items-center justify-center min-h-screen text-2xl font-semibold text-gray-700 bg-slate-100">
         Ładowanie aplikacji Róży Modlitewnej...
@@ -71,17 +70,17 @@ function App() {
     );
   }
 
-  // Główny kontener aplikacji
   return (
-    <div className="flex flex-col min-h-screen bg-slate-100"> {/* Tło dla całej aplikacji, jeśli nie jest pokryte przez <main> */}
-     {user && ( // Wyświetl nawigację tylko jeśli użytkownik jest zalogowany
-       <nav className="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50 flex-shrink-0"> {/* flex-shrink-0 zapobiega kurczeniu się navbara */}
+    <div className="flex flex-col min-h-screen bg-slate-100">
+     {user && (
+       <nav className="bg-indigo-700 text-white p-4 shadow-md sticky top-0 z-50 flex-shrink-0">
          <div className="container mx-auto flex flex-wrap justify-between items-center">
            <RouterLink to="/dashboard" className="text-xl font-semibold hover:text-indigo-200 mb-2 sm:mb-0">
              Róża Modlitewna
            </RouterLink>
            <div className="flex flex-wrap items-center space-x-2 sm:space-x-4 text-sm">
              <RouterLink to="/dashboard" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Panel Użytkownika</RouterLink>
+             <RouterLink to="/my-intentions" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Intencje</RouterLink> {/* NOWY LINK */}
              {(user.role === UserRoles.ZELATOR || user.role === UserRoles.ADMIN) && (
                <RouterLink to="/zelator-dashboard" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Panel Zelatora</RouterLink>
              )}
@@ -99,10 +98,7 @@ function App() {
        </nav>
      )}
 
-     {/* Główna treść strony - powinna się rozciągnąć */}
-     {/* Jeśli navbar jest sticky, nie potrzebujemy paddingu, jeśli <main> jest kontenerem flex i sam się rozciąga */}
-     {/* Jeśli <main> nie jest flex-grow w kontenerze flex, to padding jest potrzebny */}
-     <main className="flex-grow"> {/* flex-grow jest kluczowe, aby <main> wypełniło resztę przestrzeni */}
+     <main className="flex-grow"> 
       <Routes>
         <Route 
             path="/" 
@@ -123,6 +119,15 @@ function App() {
                     <DashboardPage />
                 </ProtectedRoute>
             } 
+        />
+        {/* NOWA TRASA DLA INTENCJI */}
+        <Route 
+            path="/my-intentions"
+            element={
+                <ProtectedRoute>
+                    <MyIntentionsPage />
+                </ProtectedRoute>
+            }
         />
         
         <Route 
@@ -156,7 +161,7 @@ function App() {
         </Route>
 
         <Route path="*" element={
-              <div className="flex flex-grow flex-col items-center justify-center py-10"> {/* flex-grow tutaj, jeśli to jedyny element w main */}
+              <div className="flex flex-grow flex-col items-center justify-center py-10">
                   <h1 className="text-6xl font-bold text-red-500 mb-4">404</h1>
                   <p className="text-2xl text-gray-700 mb-6">Strona nie została znaleziona.</p>
                   <RouterLink to="/" className="px-6 py-3 text-lg font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
@@ -166,8 +171,6 @@ function App() {
             } />
       </Routes>
      </main>
-     {/* Można dodać globalną stopkę tutaj, jeśli potrzebna */}
-     {/* <footer className="bg-gray-200 text-center p-4 text-sm text-gray-600 flex-shrink-0">Stopka aplikacji</footer> */}
     </div>
   );
 }
