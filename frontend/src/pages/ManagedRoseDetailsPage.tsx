@@ -3,9 +3,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
-import type { RoseMembershipWithUserAndMystery, BasicRoseInfo } from '../types/zelator.types'; // Używamy BasicRoseInfo
-import type { RoseListItemAdmin } from '../types/admin.types'; // Typ dla danych róży z endpointu admina
+import type { RoseMembershipWithUserAndMystery, BasicRoseInfo } from '../types/zelator.types';
+import type { RoseListItemAdmin } from '../types/admin.types';
 import { findMysteryById } from '../utils/constants';
+import type { RoseMainIntentionData } from '../types/rosary.types';
 
 const ManagedRoseDetailsPage: React.FC = () => {
   const { roseId } = useParams<{ roseId: string }>();
@@ -13,7 +14,7 @@ const ManagedRoseDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   
   const [members, setMembers] = useState<RoseMembershipWithUserAndMystery[]>([]);
-  const [currentRose, setCurrentRose] = useState<RoseListItemAdmin | null>(null); // Używamy pełniejszego typu
+  const [currentRose, setCurrentRose] = useState<RoseListItemAdmin | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -25,11 +26,18 @@ const ManagedRoseDetailsPage: React.FC = () => {
   const [isRemovingMember, setIsRemovingMember] = useState<string | null>(null);
   const [removeMemberError, setRemoveMemberError] = useState<string | null>(null);
 
+  const [currentMainIntention, setCurrentMainIntention] = useState<RoseMainIntentionData | null>(null);
+  const [intentionText, setIntentionText] = useState('');
+  // Usunęliśmy stany intentionMonth i intentionYear jako edytowalne przez użytkownika
+  const [isSubmittingIntention, setIsSubmittingIntention] = useState(false);
+  const [intentionError, setIntentionError] = useState<string | null>(null);
+  const [intentionSuccess, setIntentionSuccess] = useState<string | null>(null);
+
   const fetchPageData = useCallback(async () => {
     if (!roseId || !user) {
-        // Jeśli jesteśmy w trakcie ładowania danych użytkownika, poczekajmy
-        if(!user) console.log("fetchPageData: Brak użytkownika, czekam...");
-        if(!roseId) console.log("fetchPageData: Brak roseId, czekam...");
+        if(!user) console.log("fetchPageData: Oczekuję na dane użytkownika...");
+        if(!roseId) console.log("fetchPageData: Oczekuję na ID Róży...");
+        setIsLoading(true);
         return;
     }
 
@@ -37,28 +45,41 @@ const ManagedRoseDetailsPage: React.FC = () => {
     setPageError(null);
     setMembers([]);
     setCurrentRose(null);
-    setAddMemberError(null); 
-    setAddMemberSuccess(null);
+    setCurrentMainIntention(null);
+    setAddMemberError(null); setAddMemberSuccess(null); 
     setRemoveMemberError(null);
-
+    setIntentionError(null); setIntentionSuccess(null);
 
     try {
-      // 1. Pobierz szczegóły Róży
-      // Używamy endpointu /admin/roses/:roseId, który (zgodnie z naszymi modyfikacjami)
-      // powinien być dostępny dla Admina LUB Zelatora tej konkretnej Róży.
-      const roseResponse = await apiClient.get<RoseListItemAdmin>(`/admin/roses/${roseId}`);
-      setCurrentRose(roseResponse.data);
+      const [roseResponse, membersResponse, currentIntentionResponse] = await Promise.all([
+        apiClient.get<RoseListItemAdmin>(`/admin/roses/${roseId}`),
+        apiClient.get<RoseMembershipWithUserAndMystery[]>(`/zelator/roses/${roseId}/members`),
+        apiClient.get<RoseMainIntentionData>(`/zelator/roses/${roseId}/main-intention/current`).catch(() => null)
+      ]);
 
-      // 2. Pobierz członków Róży
-      // Endpoint /zelator/roses/:roseId/members również powinien być dostępny dla Admina i Zelatora tej Róży
-      const membersResponse = await apiClient.get<RoseMembershipWithUserAndMystery[]>(`/zelator/roses/${roseId}/members`);
-      const processedMembers = membersResponse.data.map(member => ({
-        ...member,
-        mysteryDetails: member.currentAssignedMystery 
-          ? findMysteryById(member.currentAssignedMystery) 
+      setCurrentRose(roseResponse.data);
+      
+      const processedMembers = membersResponse.data.map(m => ({
+        ...m,
+        mysteryDetails: m.currentAssignedMystery 
+          ? findMysteryById(m.currentAssignedMystery) 
           : undefined
       }));
       setMembers(processedMembers);
+
+      if (currentIntentionResponse && currentIntentionResponse.data) {
+        setCurrentMainIntention(currentIntentionResponse.data);
+        // Wypełnij pole tekstowe, jeśli intencja na bieżący miesiąc/rok istnieje
+        const today = new Date();
+        if (currentIntentionResponse.data.month === (today.getMonth() + 1) && currentIntentionResponse.data.year === today.getFullYear()) {
+            setIntentionText(currentIntentionResponse.data.text);
+        } else {
+            setIntentionText(''); // Jeśli pobrana intencja jest np. z poprzedniego miesiąca (co nie powinno się zdarzyć z endpointem /current)
+        }
+      } else {
+        setCurrentMainIntention(null);
+        setIntentionText('');
+      }
 
     } catch (err: any) {
       console.error("Błąd pobierania danych dla ManagedRoseDetailsPage:", err);
@@ -72,14 +93,13 @@ const ManagedRoseDetailsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [roseId, user]); // Zależność od user jest ważna
+  }, [roseId, user]);
 
   useEffect(() => {
-    // Wywołaj tylko jeśli mamy roseId i user (aby uniknąć niepotrzebnych zapytań)
     if (roseId && user) {
-        fetchPageData();
+      fetchPageData();
     }
-  }, [fetchPageData, roseId, user]); // Dodano roseId i user do zależności
+  }, [roseId, user, fetchPageData]);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,8 +112,6 @@ const ManagedRoseDetailsPage: React.FC = () => {
         await apiClient.post(`/zelator/roses/${currentRose.id}/members`, { userIdToAdd });
         setAddMemberSuccess(`Pomyślnie dodano użytkownika (ID: ${userIdToAdd}). Odświeżanie listy...`);
         setUserIdToAdd('');
-        // Odśwież dane strony po dodaniu członka
-        // Opóźnienie, aby użytkownik zdążył zobaczyć komunikat sukcesu
         setTimeout(() => {
             fetchPageData(); 
             setAddMemberSuccess(null);
@@ -113,13 +131,38 @@ const ManagedRoseDetailsPage: React.FC = () => {
     setIsRemovingMember(membershipIdToRemove); setRemoveMemberError(null);
     try {
         await apiClient.delete(`/zelator/roses/${currentRose.id}/members/${membershipIdToRemove}`);
-        // Odśwież dane strony po usunięciu członka
         fetchPageData();
-        // Można dodać komunikat o sukcesie, np. używając setAddMemberSuccess lub dedykowanego stanu
     } catch (err: any) {
         setRemoveMemberError(err.response?.data?.error || "Nie udało się usunąć członka.");
     } finally {
         setIsRemovingMember(null);
+    }
+  };
+
+  const handleMainIntentionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentRose || !intentionText.trim()) {
+        setIntentionError("Treść intencji jest wymagana.");
+        return;
+    }
+    setIsSubmittingIntention(true);
+    setIntentionError(null);
+    setIntentionSuccess(null);
+    try {
+        const payload = {
+            text: intentionText,
+            // month i year zostaną ustawione na backendzie na bieżące
+            isActive: true 
+        };
+        const response = await apiClient.post<RoseMainIntentionData>(`/zelator/roses/${currentRose.id}/main-intention`, payload);
+        setCurrentMainIntention(response.data); // Zawsze aktualizuj na to, co wróciło z serwera
+        setIntentionText(response.data.text);   // Odśwież pole formularza
+        setIntentionSuccess("Główna intencja na bieżący miesiąc została pomyślnie zapisana.");
+        setTimeout(() => setIntentionSuccess(null), 3000);
+    } catch (err: any) {
+        setIntentionError(err.response?.data?.error || "Nie udało się zapisać głównej intencji.");
+    } finally {
+        setIsSubmittingIntention(false);
     }
   };
 
@@ -129,7 +172,7 @@ const ManagedRoseDetailsPage: React.FC = () => {
 
   if (pageError) {
     return (
-        <div className="p-8 text-center flex flex-col justify-center items-center">
+        <div className="p-8 text-center min-h-screen flex flex-col justify-center items-center">
             <p className="text-red-600 bg-red-100 p-4 rounded-md mb-4 text-lg">{pageError}</p>
             <RouterLink to="/zelator-dashboard" className="px-5 py-2.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
                 ← Wróć do Panelu Zelatora
@@ -138,9 +181,9 @@ const ManagedRoseDetailsPage: React.FC = () => {
     );
   }
 
-  if (!currentRose) {
-    return ( // Ten stan nie powinien być często widoczny, jeśli pageError dobrze łapie 404
-        <div className="p-8 text-center flex flex-col justify-center items-center">
+  if (!currentRose && !isLoading) {
+    return (
+        <div className="p-8 text-center min-h-screen flex flex-col justify-center items-center">
             <p className="text-gray-700 bg-yellow-100 p-4 rounded-md mb-4">Nie można załadować danych Róży o ID: {roseId}.</p>
             <RouterLink to="/zelator-dashboard" className="px-5 py-2.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
                 ← Wróć do Panelu Zelatora
@@ -151,57 +194,101 @@ const ManagedRoseDetailsPage: React.FC = () => {
 
   return (
     <div className="p-4 md:p-8 bg-slate-50 min-h-screen">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-4xl mx-auto space-y-8">
         <div className="mb-6">
             <RouterLink to="/zelator-dashboard" className="text-sm text-blue-600 hover:text-blue-800 hover:underline">
             ← Wróć do Panelu Zelatora
             </RouterLink>
         </div>
         
-        <div className="bg-white p-6 rounded-xl shadow-xl mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-1">
-                {currentRose.name}
-            </h1>
-            {currentRose.description && <p className="text-md text-gray-600 mb-3 italic">"{currentRose.description}"</p>}
-            <div className="text-xs text-gray-500 space-y-0.5">
-                <p>Zelator: {currentRose.zelator?.name || currentRose.zelator?.email || 'Brak danych'} (ID: {currentRose.zelatorId})</p>
-                <p>ID Róży: {currentRose.id}</p>
+        {currentRose && (
+            <div className="bg-white p-6 rounded-xl shadow-xl mb-8">
+                <h1 className="text-3xl font-bold text-gray-800 mb-1">
+                    {currentRose.name}
+                </h1>
+                {currentRose.description && <p className="text-md text-gray-600 mb-3 italic">"{currentRose.description}"</p>}
+                <div className="text-xs text-gray-500 space-y-0.5">
+                    <p>Zelator: {currentRose.zelator?.name || currentRose.zelator?.email || 'Brak danych'} (ID: {currentRose.zelatorId})</p>
+                    <p>ID Róży: {currentRose.id}</p>
+                </div>
             </div>
-        </div>
+        )}
         
-        <div className="bg-white p-6 rounded-xl shadow-xl mb-8">
-             <h3 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Dodaj Nowego Członka</h3>
-             {addMemberError && <p className="mb-3 p-3 text-sm text-red-700 bg-red-100 rounded-md">{addMemberError}</p>}
-             {addMemberSuccess && <p className="mb-3 p-3 text-sm text-green-700 bg-green-100 rounded-md">{addMemberSuccess}</p>}
-             <form onSubmit={handleAddMember} className="flex flex-col sm:flex-row sm:items-end gap-4">
-                 <div className="flex-grow">
-                     <label htmlFor="userIdToAdd" className="block text-sm font-medium text-gray-700 mb-1">
-                         ID Użytkownika
-                     </label>
-                     <input
-                         type="text"
-                         id="userIdToAdd"
-                         value={userIdToAdd}
-                         onChange={(e) => setUserIdToAdd(e.target.value)}
-                         placeholder="Wklej ID użytkownika z listy systemowej"
-                         className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                         required
-                     />
-                 </div>
-                 <button
-                     type="submit"
-                     disabled={isAddingMember}
-                     className="px-5 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60 min-w-[140px] h-[42px]"
-                 >
-                     {isAddingMember ? 'Dodawanie...' : 'Dodaj Członka'}
-                 </button>
-             </form>
-        </div>
+        {/* Sekcja Głównej Intencji Róży */}
+        <section className="bg-white p-6 rounded-xl shadow-xl">
+          <h2 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-3">Główna Intencja Róży (na bieżący miesiąc)</h2>
+          {currentMainIntention ? (
+            <div className="mb-4 p-4 bg-amber-100 border-l-4 border-amber-500 rounded-r-md">
+                <h4 className="text-sm font-semibold text-amber-700">Aktualna na {currentMainIntention.month}/{currentMainIntention.year}:</h4>
+                <p className="text-amber-800 text-sm whitespace-pre-wrap mt-1">{currentMainIntention.text}</p>
+                {currentMainIntention.author && <p className="text-xs text-amber-600 mt-1.5">Dodał: {currentMainIntention.author.name || currentMainIntention.author.email}</p>}
+            </div>
+          ) : (
+            <p className="mb-4 text-sm text-gray-500 italic">Brak ustawionej głównej intencji na bieżący miesiąc/rok. Możesz ją ustawić poniżej.</p>
+          )}
 
-        <div className="bg-white p-6 rounded-xl shadow-xl">
+          <form onSubmit={handleMainIntentionSubmit} className="space-y-4">
+            <h4 className="text-md font-medium text-gray-700">Ustaw lub zmień intencję na bieżący miesiąc/rok:</h4>
+            {intentionError && <p className="p-2 text-sm text-red-600 bg-red-100 rounded">{intentionError}</p>}
+            {intentionSuccess && <p className="p-2 text-sm text-green-600 bg-green-100 rounded">{intentionSuccess}</p>}
+            
+            <div>
+                <label htmlFor="intentionText" className="block text-sm font-medium text-gray-700">Treść intencji <span className="text-red-500">*</span></label>
+                <textarea
+                    id="intentionText"
+                    rows={4}
+                    value={intentionText}
+                    onChange={(e) => setIntentionText(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="Wpisz główną intencję modlitewną dla Róży..."
+                    required
+                />
+            </div>
+            <button
+                type="submit"
+                disabled={isSubmittingIntention}
+                className="w-full sm:w-auto px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60"
+            >
+                {isSubmittingIntention ? 'Zapisywanie...' : 'Zapisz Główną Intencję (na ten miesiąc)'}
+            </button>
+          </form>
+        </section>
+
+        {/* Sekcja Dodawania Członka */}
+        <section className="bg-white p-6 rounded-xl shadow-xl">
+            <h3 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-3">Dodaj Nowego Członka</h3>
+            {addMemberError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{addMemberError}</p>}
+            {addMemberSuccess && <p className="mb-3 p-2 text-sm text-green-600 bg-green-100 rounded">{addMemberSuccess}</p>}
+            <form onSubmit={handleAddMember} className="flex flex-col sm:flex-row sm:items-end gap-4">
+                <div className="flex-grow">
+                    <label htmlFor="userIdToAdd" className="block text-sm font-medium text-gray-700 mb-1">
+                        ID Użytkownika
+                    </label>
+                    <input
+                        type="text"
+                        id="userIdToAdd"
+                        value={userIdToAdd}
+                        onChange={(e) => setUserIdToAdd(e.target.value)}
+                        placeholder="Wklej ID użytkownika z listy systemowej"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        required
+                    />
+                </div>
+                <button
+                    type="submit"
+                    disabled={isAddingMember}
+                    className="px-5 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60 min-w-[140px] h-[42px]"
+                >
+                    {isAddingMember ? 'Dodawanie...' : 'Dodaj Członka'}
+                </button>
+            </form>
+        </section>
+
+        {/* Sekcja Listy Członków */}
+        <section className="bg-white p-6 rounded-xl shadow-xl">
           <h2 className="text-2xl font-semibold text-gray-700 mb-5 border-b pb-3">
-            Członkowie Róży ({members.length} / {currentRose._count?.members ?? members.length} z {20})
-            </h2>
+            Członkowie Róży ({currentRose?._count?.members ?? members.length} / {20})
+          </h2>
           {removeMemberError && <p className="mb-3 p-3 text-sm text-red-700 bg-red-100 rounded-md">{removeMemberError}</p>}
           
           {!isLoading && members.length === 0 ? (
@@ -213,7 +300,7 @@ const ManagedRoseDetailsPage: React.FC = () => {
                   <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3">
                     <div className="flex-grow">
                        <p className="font-bold text-gray-800">{member.user.name || member.user.email}</p>
-                       <p className="text-sm text-gray-600">{member.user.email}</p>
+                       <p className="text-sm text-gray-600">{member.user.email} <span className="text-xs text-gray-400">(ID: {member.user.id})</span></p>
                        <p className="text-xs text-gray-400 mt-0.5">Rola systemowa: {member.user.role}</p>
                        
                        <div className="mt-3 p-3 bg-indigo-50 rounded-md border border-indigo-100">
@@ -222,12 +309,6 @@ const ManagedRoseDetailsPage: React.FC = () => {
                                <>
                                    <p className="text-md font-semibold text-indigo-800">{member.mysteryDetails.name}</p>
                                    <p className="text-xs text-gray-500 mb-1">({member.mysteryDetails.group})</p>
-                                   {/* Można dodać rozwijane rozważanie
-                                   <details className="text-xs">
-                                       <summary className="cursor-pointer text-indigo-500 hover:underline">Pokaż rozważanie</summary>
-                                       <p className="mt-1 text-gray-700">{member.mysteryDetails.contemplation}</p>
-                                   </details>
-                                   */}
                                </>
                            ) : member.currentAssignedMystery ? (
                                 <p className="text-sm text-orange-600 italic">Tajemnica o ID: {member.currentAssignedMystery} (oczekuje na odświeżenie)</p>
@@ -235,7 +316,7 @@ const ManagedRoseDetailsPage: React.FC = () => {
                                <p className="text-sm text-gray-500 italic">Brak przydzielonej tajemnicy</p>
                            )}
 
-                           {member.currentAssignedMystery && ( // Pokaż status potwierdzenia tylko jeśli jest tajemnica
+                           {member.currentAssignedMystery && (
                                 member.mysteryConfirmedAt ? (
                                     <p className="text-xs font-medium text-green-600 mt-2 bg-green-100 px-2 py-1 rounded inline-block">
                                         Potwierdzono: {new Date(member.mysteryConfirmedAt).toLocaleDateString('pl-PL', {day:'2-digit', month:'2-digit', year:'numeric'})}
@@ -248,7 +329,7 @@ const ManagedRoseDetailsPage: React.FC = () => {
                            )}
                        </div>
                     </div>
-                    <div className="flex-shrink-0 pt-1 self-center sm:self-start"> {/* Przycisk usuwania */}
+                    <div className="flex-shrink-0 pt-1 self-center sm:self-start">
                        <button 
                            onClick={() => handleRemoveMember(member.id)}
                            className="px-3.5 py-2 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 disabled:opacity-50 min-w-[100px]"
@@ -262,7 +343,7 @@ const ManagedRoseDetailsPage: React.FC = () => {
               ))}
             </ul>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );
