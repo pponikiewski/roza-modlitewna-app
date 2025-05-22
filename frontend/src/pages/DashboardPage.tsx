@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
 import type { UserMembership, MysteryHistoryResponse, MysteryHistoryEntry } from '../types/rosary.types';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom'; // Jeśli będziesz dodawał linki do szczegółów
 
 const DashboardPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -17,15 +17,17 @@ const DashboardPage: React.FC = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
-  const [confirmError, setConfirmError] = useState<string | null>(null);
-  const [isConfirming, setIsConfirming] = useState<string | null>(null); // Przechowuje ID członkostwa
+  const [confirmError, setConfirmError] = useState<string | null>(null); // Błąd specyficzny dla potwierdzenia
+  const [isConfirming, setIsConfirming] = useState<string | null>(null); // Przechowuje ID członkostwa, które jest potwierdzane
 
+  // Pobieranie listy członkostw użytkownika
   const fetchMyMemberships = useCallback(async () => {
     if (!user) return;
     setIsLoadingMemberships(true);
     setMembershipsError(null);
     try {
-      const response = await apiClient.get<UserMembership[]>('/me/my-memberships');
+      // ZAKTUALIZOWANY ENDPOINT: Teraz GET /me/memberships
+      const response = await apiClient.get<UserMembership[]>('/me/memberships');
       setMyMemberships(response.data);
     } catch (err: any) {
       console.error("Błąd pobierania członkostw użytkownika:", err);
@@ -43,20 +45,19 @@ const DashboardPage: React.FC = () => {
 
 
   const handleConfirmMystery = async (membershipIdToConfirm: string, currentMysteryId: string | null) => {
-     if (!membershipIdToConfirm || !currentMysteryId) { // Sprawdzamy też currentMysteryId
+     if (!membershipIdToConfirm || !currentMysteryId) {
          setConfirmError('Brak ID członkostwa lub tajemnicy do potwierdzenia.');
          return;
      }
      setIsConfirming(membershipIdToConfirm);
      setConfirmError(null);
      try {
-         // Backend powinien zwrócić zaktualizowany obiekt UserMembership
+         // ZAKTUALIZOWANY ENDPOINT: Teraz PATCH /me/memberships/:membershipId/confirm-mystery
          const response = await apiClient.patch<UserMembership>(`/me/memberships/${membershipIdToConfirm}/confirm-mystery`);
-         // Zaktualizuj stan myMemberships, aby odzwierciedlić potwierdzenie
          setMyMemberships(prevMemberships => 
             prevMemberships.map(memb => 
                 memb.id === membershipIdToConfirm 
-                ? response.data // Zastąp całym zaktualizowanym obiektem z backendu
+                ? response.data 
                 : memb
             )
          );
@@ -78,10 +79,9 @@ const DashboardPage: React.FC = () => {
      setHistoryError(null);
      setMysteryHistory(null);
      try {
-         // Endpoint zwraca obiekt { roseName: string, history: MysteryHistoryEntry[] }
+         // ZAKTUALIZOWANY ENDPOINT: Teraz GET /me/memberships/:membershipId/mystery-history
          const response = await apiClient.get<MysteryHistoryResponse>(`/me/memberships/${membership.id}/mystery-history`);
          setMysteryHistory(response.data.history);
-         // Nazwa róży jest już w `selectedMembershipForHistory.rose.name`
      } catch (err:any) {
          console.error("Błąd pobierania historii tajemnic:", err);
          setHistoryError(err.response?.data?.error || 'Nie udało się pobrać historii tajemnic.');
@@ -95,13 +95,13 @@ const DashboardPage: React.FC = () => {
     return <p className="p-8 text-center text-red-600">Błąd: Brak danych użytkownika. Proszę się zalogować.</p>;
   }
 
-  if (isLoadingMemberships && myMemberships.length === 0) {
+  if (isLoadingMemberships && myMemberships.length === 0) { // Pokaż ładowanie tylko jeśli lista jest pusta
     return <div className="p-8 text-center text-xl">Ładowanie Twoich danych...</div>;
   }
 
   return (
-    <div className="p-4 md:p-8 bg-slate-100">
-      <div className="max-w-4xl mx-auto"> {/* Zwiększono max-w dla lepszego układu */}
+    <div className="p-4 md:p-8 bg-slate-100 min-h-screen">
+      <div className="max-w-4xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-8 pb-4 border-b border-gray-300">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2 sm:mb-0">
             Witaj, {user.name || user.email}!
@@ -132,7 +132,7 @@ const DashboardPage: React.FC = () => {
             
             {membership.currentMainIntentionForRose ? (
               <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-md">
-                <h4 className="text-sm font-semibold text-amber-800 mb-1">Główna Intencja Róży (ten miesiąc):</h4>
+                <h4 className="text-sm font-semibold text-amber-800 mb-1">Główna Intencja tej Róży (ten miesiąc):</h4>
                 <p className="text-amber-700 text-sm whitespace-pre-wrap">{membership.currentMainIntentionForRose.text}</p>
                 {membership.currentMainIntentionForRose.author && (
                     <p className="text-xs text-amber-600 mt-1.5">
@@ -154,7 +154,7 @@ const DashboardPage: React.FC = () => {
                        src={membership.currentMysteryFullDetails.imageUrl} 
                        alt={`Grafika dla ${membership.currentMysteryFullDetails.name}`} 
                        className="w-full max-w-xs sm:max-w-sm mx-auto h-auto rounded-lg shadow-md mb-4 object-contain" 
-                       style={{maxHeight: '200px'}} // Zmniejszona wysokość dla listy
+                       style={{maxHeight: '200px'}}
                    />
                 )}
 
@@ -170,7 +170,7 @@ const DashboardPage: React.FC = () => {
                   </p>
                 ) : (
                   <button
-                    onClick={() => handleConfirmMystery(membership.id, membership.currentMysteryFullDetails!.id)}
+                    onClick={() => handleConfirmMystery(membership.id, membership.currentMysteryFullDetails!.id)} // Używamy ID tajemnicy dla pewności
                     disabled={isConfirming === membership.id}
                     className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-green-500 disabled:opacity-60"
                   >
@@ -193,8 +193,8 @@ const DashboardPage: React.FC = () => {
                             <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
                                 {mysteryHistory.map(entry => (
                                 <div key={entry.id} className="p-2.5 bg-gray-100 rounded-md text-xs">
-                                    <p className="font-medium text-gray-800">{entry.mysteryDetails?.name || `Tajemnica ID: ${entry.mystery}`}</p>
-                                    <p className="text-gray-500">{entry.mysteryDetails?.group}</p>
+                                    <span className="font-medium text-gray-800">{entry.mysteryDetails?.name || `Tajemnica ID: ${entry.mystery}`}</span>
+                                    <span className="text-gray-500 ml-2">({entry.mysteryDetails?.group})</span>
                                     <p className="text-gray-500">
                                         Przydzielono: {entry.assignedMonth}/{entry.assignedYear} 
                                         <span className="text-gray-400"> ({new Date(entry.assignedAt).toLocaleDateString('pl-PL')})</span>
@@ -212,6 +212,8 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
         ))}
+        {/* Usunięto sekcję "Aktualnej Tajemnicy", która bazowała na currentMysteryInfo,
+            ponieważ teraz wszystko jest w pętli myMemberships. */}
       </div>
     </div>
   );

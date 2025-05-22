@@ -1,18 +1,19 @@
 // backend/src/member/member.routes.ts
 import { Router } from 'express';
-// Dodaj listMyMemberships do importów
-import { getCurrentMysteryInfo, confirmMysteryRead, getMysteryHistory, listMyMemberships } from './member.controller';
+console.log('ŁADOWANIE PLIKU member.routes.ts'); // <<<< DODAJ TEN LOG
+
+// Upewnij się, że listMyMemberships jest tu poprawnie zaimportowane
+import { confirmMysteryRead, getMysteryHistory, listMyMemberships } from './member.controller';
 import { authenticateToken } from '../auth/auth.middleware';
 
 const router = Router();
+router.use(authenticateToken); // Stosuje authenticateToken do wszystkich poniższych tras
 
-router.use(authenticateToken); // Stosujemy middleware do wszystkich tras w tym routerze
-
-// NOWA TRASA: Listowanie Róż (członkostw) zalogowanego użytkownika
-router.get('/my-memberships', listMyMemberships);
-
-router.get('/current-mystery', getCurrentMysteryInfo); // Ta trasa może wymagać modyfikacji lub ID członkostwa
-router.patch('/memberships/:membershipId/confirm-mystery', confirmMysteryRead);
-router.get('/memberships/:membershipId/mystery-history', getMysteryHistory);
+// Ta trasa będzie dostępna jako GET http://localhost:3001/me/memberships
+router.get('/', listMyMemberships); 
+    
+// Operacje na konkretnym członkostwie
+router.patch('/:membershipId/confirm-mystery', confirmMysteryRead);
+router.get('/:membershipId/mystery-history', getMysteryHistory);
 
 export default router;

@@ -6,14 +6,15 @@ import prisma from './db';
 import authRoutes from './auth/auth.routes';
 import adminRoutes from './admin/admin.routes';
 import zelatorRoutes from './zelator/zelator.routes';
-import memberRoutes from './member/member.routes';
+import memberRoutes from './member/member.routes'; // Trasy dla operacji na członkostwach zalogowanego użytkownika
+import userIntentionRoutes, { roseSharedIntentionsRouter } from './intentions/userIntention.routes'; // Trasy dla intencji
 import { startScheduler } from './scheduler';
 import {
   authenticateToken,
   authorizeRole,
   AuthenticatedRequest
 } from './auth/auth.middleware';
-import { UserRole } from './types/user.types'; // Upewnij się, że ten plik istnieje i enum jest poprawny
+import { UserRole } from './types/user.types';
 
 dotenv.config();
 
@@ -37,30 +38,47 @@ const corsOptions: cors.CorsOptions = {
 
 app.use(cors(corsOptions));
 
+// Middleware do parsowania JSON
 app.use(express.json());
 
 // --- Definicje Tras ---
-console.log('Rejestrowanie tras...'); // Log do sprawdzenia, czy ten fragment jest wykonywany
+console.log('Rejestrowanie tras...');
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Witaj na serwerze Róży Modlitewnej!');
 });
 
+// Trasy publiczne dla autoryzacji
 app.use('/auth', authRoutes);
 console.log('Trasy /auth zarejestrowane.');
 
+// Trasy administracyjne
 app.use('/admin', adminRoutes);
 console.log('Trasy /admin zarejestrowane.');
 
-app.use('/zelator', zelatorRoutes); // Upewnij się, że to jest poprawnie skonfigurowane
+// Trasy dla Zelatorów (zarządzanie Różami, do których mają uprawnienia)
+app.use('/zelator', zelatorRoutes);
 console.log('Trasy /zelator zarejestrowane.');
 
-app.use('/me', memberRoutes);
-console.log('Trasy /me zarejestrowane.');
+// Trasy dla zalogowanego użytkownika dotyczące jego członkostw w Różach
+// np. /me/memberships (lista moich członkostw), /me/memberships/:id/confirm-mystery
+app.use('/me/memberships', memberRoutes);
+console.log('Trasy /me/memberships zarejestrowane.');
+
+// Trasy dla zalogowanego użytkownika dotyczące jego indywidualnych intencji
+// np. /me/intentions (lista moich intencji, tworzenie nowej), /me/intentions/:id (edycja, usuwanie)
+app.use('/me/intentions', userIntentionRoutes);
+console.log('Trasy /me/intentions zarejestrowane.');
+
+// Trasy do pobierania intencji udostępnionych dla konkretnej Róży
+// np. /roses/:roseId/shared-intentions
+app.use('/roses', roseSharedIntentionsRouter);
+console.log('Trasy /roses (dla shared-intentions) zarejestrowane.');
 
 
+// Endpoint do pobierania wszystkich użytkowników (Admin) - przykład trasy ogólnej
 app.get(
-  '/users',
+  '/users', // Dostępne pod http://localhost:3001/users
   authenticateToken,
   authorizeRole([UserRole.ADMIN]),
   async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -85,9 +103,10 @@ app.get(
     }
   }
 );
-console.log('Trasa /users zarejestrowana.');
+console.log('Trasa GET /users zarejestrowana.');
 
 // --- Globalny Error Handler ---
+// Musi być zdefiniowany jako ostatni, po wszystkich app.use() i trasach.
 app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
   console.error("GLOBAL ERROR HANDLER:", err.name, "-", err.message, err.stack ? `\nStack: ${err.stack}`: '');
   
