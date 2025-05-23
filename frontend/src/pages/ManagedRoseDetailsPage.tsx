@@ -6,7 +6,7 @@ import apiClient from '../services/api';
 import type { RoseMembershipWithUserAndMystery, BasicRoseInfo } from '../types/zelator.types';
 import type { RoseListItemAdmin } from '../types/admin.types';
 import { findMysteryById } from '../utils/constants';
-import type { RoseMainIntentionData } from '../types/rosary.types';
+import type { RoseMainIntentionData, UserIntention } from '../types/rosary.types';
 
 const ManagedRoseDetailsPage: React.FC = () => {
   const { roseId } = useParams<{ roseId: string }>();
@@ -28,16 +28,21 @@ const ManagedRoseDetailsPage: React.FC = () => {
 
   const [currentMainIntention, setCurrentMainIntention] = useState<RoseMainIntentionData | null>(null);
   const [intentionText, setIntentionText] = useState('');
-  // Usunęliśmy stany intentionMonth i intentionYear jako edytowalne przez użytkownika
+  // Domyślnie miesiąc i rok dla formularza intencji ustawiamy na bieżące
+  const [intentionMonth, setIntentionMonth] = useState<number>(new Date().getMonth() + 1);
+  const [intentionYear, setIntentionYear] = useState<number>(new Date().getFullYear());
   const [isSubmittingIntention, setIsSubmittingIntention] = useState(false);
   const [intentionError, setIntentionError] = useState<string | null>(null);
   const [intentionSuccess, setIntentionSuccess] = useState<string | null>(null);
 
+  const [sharedIntentions, setSharedIntentions] = useState<UserIntention[]>([]);
+  // isLoadingSharedIntentions nie jest już potrzebne, bo jest częścią głównego isLoading z fetchPageData
+  const [sharedIntentionsError, setSharedIntentionsError] = useState<string | null>(null);
+
+
   const fetchPageData = useCallback(async () => {
     if (!roseId || !user) {
-        if(!user) console.log("fetchPageData: Oczekuję na dane użytkownika...");
-        if(!roseId) console.log("fetchPageData: Oczekuję na ID Róży...");
-        setIsLoading(true);
+        setIsLoading(true); // Nadal ustawiamy isLoading, żeby pokazać loader
         return;
     }
 
@@ -46,15 +51,23 @@ const ManagedRoseDetailsPage: React.FC = () => {
     setMembers([]);
     setCurrentRose(null);
     setCurrentMainIntention(null);
+    setSharedIntentions([]); // Resetuj udostępnione intencje
     setAddMemberError(null); setAddMemberSuccess(null); 
     setRemoveMemberError(null);
     setIntentionError(null); setIntentionSuccess(null);
+    setSharedIntentionsError(null);
 
     try {
-      const [roseResponse, membersResponse, currentIntentionResponse] = await Promise.all([
+      const [
+        roseResponse, 
+        membersResponse, 
+        currentIntentionResponse,
+        sharedIntentionsResponse
+      ] = await Promise.all([
         apiClient.get<RoseListItemAdmin>(`/admin/roses/${roseId}`),
         apiClient.get<RoseMembershipWithUserAndMystery[]>(`/zelator/roses/${roseId}/members`),
-        apiClient.get<RoseMainIntentionData>(`/zelator/roses/${roseId}/main-intention/current`).catch(() => null)
+        apiClient.get<RoseMainIntentionData>(`/zelator/roses/${roseId}/main-intention/current`).catch(() => null),
+        apiClient.get<UserIntention[]>(`/roses/${roseId}/shared-intentions`).catch(() => ({ data: [] }))
       ]);
 
       setCurrentRose(roseResponse.data);
@@ -69,16 +82,30 @@ const ManagedRoseDetailsPage: React.FC = () => {
 
       if (currentIntentionResponse && currentIntentionResponse.data) {
         setCurrentMainIntention(currentIntentionResponse.data);
-        // Wypełnij pole tekstowe, jeśli intencja na bieżący miesiąc/rok istnieje
-        const today = new Date();
-        if (currentIntentionResponse.data.month === (today.getMonth() + 1) && currentIntentionResponse.data.year === today.getFullYear()) {
+        const today = new Date(); // Definiujemy 'today' przed użyciem
+        // Wypełnij formularz tylko jeśli pobrana intencja jest dla aktualnie wybranego miesiąca/roku w formularzu LUB dla bieżącego
+        if (currentIntentionResponse.data.month === intentionMonth && currentIntentionResponse.data.year === intentionYear) {
             setIntentionText(currentIntentionResponse.data.text);
-        } else {
-            setIntentionText(''); // Jeśli pobrana intencja jest np. z poprzedniego miesiąca (co nie powinno się zdarzyć z endpointem /current)
+        } else if (currentIntentionResponse.data.month === (today.getMonth() +1) && currentIntentionResponse.data.year === today.getFullYear()){
+             setIntentionText(currentIntentionResponse.data.text); // Jeśli to intencja na dziś, wypełnij
+             setIntentionMonth(today.getMonth() + 1); // Ustaw formularz na dziś
+             setIntentionYear(today.getFullYear());
+        }
+         else {
+            setIntentionText(''); // Jeśli pobrana intencja jest inna niż w formularzu, nie wypełniaj
         }
       } else {
         setCurrentMainIntention(null);
         setIntentionText('');
+        const today = new Date();
+        setIntentionMonth(today.getMonth() + 1);
+        setIntentionYear(today.getFullYear());
+      }
+
+      if (sharedIntentionsResponse && sharedIntentionsResponse.data) {
+         setSharedIntentions(sharedIntentionsResponse.data);
+      } else {
+         setSharedIntentions([]);
       }
 
     } catch (err: any) {
@@ -93,13 +120,13 @@ const ManagedRoseDetailsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [roseId, user]);
+  }, [roseId, user, intentionMonth, intentionYear]); // intentionMonth/Year są tu, aby potencjalnie odświeżać formularz, ale główna intencja /current jest zawsze dla bieżącego
 
   useEffect(() => {
     if (roseId && user) {
       fetchPageData();
     }
-  }, [roseId, user, fetchPageData]);
+  }, [roseId, user, fetchPageData]); // fetchPageData jest w useCallback, więc jego referencja się nie zmienia bez potrzeby
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +158,7 @@ const ManagedRoseDetailsPage: React.FC = () => {
     setIsRemovingMember(membershipIdToRemove); setRemoveMemberError(null);
     try {
         await apiClient.delete(`/zelator/roses/${currentRose.id}/members/${membershipIdToRemove}`);
-        fetchPageData();
+        fetchPageData(); // Odśwież wszystkie dane strony
     } catch (err: any) {
         setRemoveMemberError(err.response?.data?.error || "Nie udało się usunąć członka.");
     } finally {
@@ -151,12 +178,12 @@ const ManagedRoseDetailsPage: React.FC = () => {
     try {
         const payload = {
             text: intentionText,
-            // month i year zostaną ustawione na backendzie na bieżące
+            // month i year nie są już wysyłane z frontendu, backend bierze bieżące
             isActive: true 
         };
         const response = await apiClient.post<RoseMainIntentionData>(`/zelator/roses/${currentRose.id}/main-intention`, payload);
-        setCurrentMainIntention(response.data); // Zawsze aktualizuj na to, co wróciło z serwera
-        setIntentionText(response.data.text);   // Odśwież pole formularza
+        setCurrentMainIntention(response.data);
+        setIntentionText(response.data.text);
         setIntentionSuccess("Główna intencja na bieżący miesiąc została pomyślnie zapisana.");
         setTimeout(() => setIntentionSuccess(null), 3000);
     } catch (err: any) {
@@ -249,9 +276,35 @@ const ManagedRoseDetailsPage: React.FC = () => {
                 disabled={isSubmittingIntention}
                 className="w-full sm:w-auto px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60"
             >
-                {isSubmittingIntention ? 'Zapisywanie...' : 'Zapisz Główną Intencję (na ten miesiąc)'}
+                {isSubmittingIntention ? 'Zapisywanie...' : 'Zapisz Główną Intencję'}
             </button>
           </form>
+        </section>
+
+        {/* Sekcja Intencji Udostępnionych w Tej Róży */}
+        <section className="bg-white p-6 rounded-xl shadow-xl">
+            <h2 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-3">Intencje Udostępnione w Róży "{currentRose?.name}"</h2>
+            
+            {/* isLoading był globalny, więc sprawdzamy, czy dane są już załadowane */}
+            {!isLoading && sharedIntentionsError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{sharedIntentionsError}</p>}
+            
+            {!isLoading && sharedIntentions.length === 0 && !sharedIntentionsError && (
+            <p className="text-gray-600 text-center py-4">Brak udostępnionych intencji w tej Róży.</p>
+            )}
+
+            {sharedIntentions.length > 0 && (
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-2"> {/* Dodano pr-2 dla scrollbara */}
+                {sharedIntentions.map(intention => (
+                <div key={intention.id} className="p-3 bg-blue-50 rounded-md border border-blue-200">
+                    <p className="text-gray-800 text-sm whitespace-pre-wrap mb-1.5">{intention.text}</p>
+                    <p className="text-xs text-blue-700">
+                    Przez: <span className="font-medium">{intention.author?.name || intention.author?.email || 'Anonim'}</span>
+                    <span className="text-gray-500 ml-2">({new Date(intention.createdAt).toLocaleDateString('pl-PL')})</span>
+                    </p>
+                </div>
+                ))}
+            </div>
+            )}
         </section>
 
         {/* Sekcja Dodawania Członka */}
