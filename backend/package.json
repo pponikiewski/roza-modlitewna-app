@@ -1,11 +1,11 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js", 
+  "main": "index.ts", 
   "scripts": {
     "dev": "nodemon",
     "build": "tsc",
-    "start": "node index.js",
+    "start": "node index.ts",
     "prisma:migrate": "prisma migrate deploy", 
     "prisma:generate": "prisma generate",
     "prisma:seed": "ts-node prisma/seed.ts",
