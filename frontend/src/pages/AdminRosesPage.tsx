@@ -2,14 +2,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import apiClient from '../services/api';
 import type { RoseListItemAdmin, UserAdminView } from '../types/admin.types';
-import { UserRoles, type UserRole } from '../types/user.types'; // Zaimportuj, jeśli potrzebne do filtrowania Zelatorów
+import { UserRoles } from '../types/user.types'; 
 
 const AdminRosesPage: React.FC = () => {
   const [roses, setRoses] = useState<RoseListItemAdmin[]>([]);
   const [isLoadingRoses, setIsLoadingRoses] = useState(true);
   const [rosesError, setRosesError] = useState<string | null>(null);
 
-  // Stany dla formularza tworzenia Róży
   const [createRoseName, setCreateRoseName] = useState('');
   const [createRoseDescription, setCreateRoseDescription] = useState('');
   const [createSelectedZelatorId, setCreateSelectedZelatorId] = useState('');
@@ -18,11 +17,9 @@ const AdminRosesPage: React.FC = () => {
   const [createRoseError, setCreateRoseError] = useState<string | null>(null);
   const [createRoseSuccess, setCreateRoseSuccess] = useState<string | null>(null);
   
-  // Stany dla globalnego triggera przydzielania tajemnic
   const [isTriggeringMysteriesGlobal, setIsTriggeringMysteriesGlobal] = useState(false);
   const [triggerMysteriesGlobalMessage, setTriggerMysteriesGlobalMessage] = useState<string | null>(null);
 
-  // Stany dla edycji Róży
   const [editingRose, setEditingRose] = useState<RoseListItemAdmin | null>(null);
   const [editRoseName, setEditRoseName] = useState('');
   const [editRoseDescription, setEditRoseDescription] = useState('');
@@ -31,9 +28,13 @@ const AdminRosesPage: React.FC = () => {
   const [updateRoseError, setUpdateRoseError] = useState<string | null>(null);
   const [updateRoseSuccess, setUpdateRoseSuccess] = useState<string | null>(null);
 
-  // Stany dla triggerowania pojedynczej Róży
   const [isTriggeringSingleRose, setIsTriggeringSingleRose] = useState<string | null>(null);
   const [singleRoseTriggerMessage, setSingleRoseTriggerMessage] = useState<{id: string, message: string, isError?: boolean} | null>(null);
+
+  // Stany dla usuwania Róży
+  const [isDeletingRose, setIsDeletingRose] = useState<string | null>(null);
+  const [deleteRoseError, setDeleteRoseError] = useState<string | null>(null);
+  const [deleteRoseSuccess, setDeleteRoseSuccess] = useState<string | null>(null);
 
 
   const fetchRoses = useCallback(async () => {
@@ -51,14 +52,13 @@ const AdminRosesPage: React.FC = () => {
 
   const fetchAvailableZelators = useCallback(async () => {
     try {
-        const response = await apiClient.get<UserAdminView[]>('/users');
+        const response = await apiClient.get<UserAdminView[]>('/users'); // Assuming this endpoint gives enough user info
         const potentialZelators = response.data.filter(
             user => user.role === UserRoles.ZELATOR || user.role === UserRoles.ADMIN
         );
         setAvailableZelators(potentialZelators);
     } catch (err:any) {
         console.error("Nie udało się pobrać listy potencjalnych Zelatorów:", err);
-        // Można ustawić błąd, jeśli to krytyczne dla formularzy
     }
   }, []);
 
@@ -76,6 +76,8 @@ const AdminRosesPage: React.FC = () => {
     setIsCreatingRose(true);
     setCreateRoseError(null);
     setCreateRoseSuccess(null);
+    setDeleteRoseError(null); // Clear other errors
+    setDeleteRoseSuccess(null);
     try {
         await apiClient.post('/admin/roses', {
             name: createRoseName,
@@ -99,6 +101,8 @@ const AdminRosesPage: React.FC = () => {
     setIsTriggeringMysteriesGlobal(true);
     setTriggerMysteriesGlobalMessage(null);
     setSingleRoseTriggerMessage(null);
+    setDeleteRoseError(null);
+    setDeleteRoseSuccess(null);
     try {
         const response = await apiClient.post('/admin/trigger-mystery-assignment');
         setTriggerMysteriesGlobalMessage(response.data.message || "Proces globalnego przydzielania tajemnic zainicjowany.");
@@ -117,6 +121,8 @@ const AdminRosesPage: React.FC = () => {
     setEditSelectedZelatorId(roseToEdit.zelator.id);
     setUpdateRoseError(null);
     setUpdateRoseSuccess(null);
+    setDeleteRoseError(null); 
+    setDeleteRoseSuccess(null);
   };
 
   const closeEditRoseModal = () => {
@@ -156,6 +162,8 @@ const AdminRosesPage: React.FC = () => {
     setIsTriggeringSingleRose(roseId);
     setSingleRoseTriggerMessage(null);
     setTriggerMysteriesGlobalMessage(null);
+    setDeleteRoseError(null);
+    setDeleteRoseSuccess(null);
     try {
         const response = await apiClient.post(`/admin/roses/${roseId}/trigger-mystery-assignment`);
         setSingleRoseTriggerMessage({ id: roseId, message: response.data.message || `Proces przydzielania tajemnic dla Róży "${roseName}" zainicjowany.`});
@@ -167,8 +175,35 @@ const AdminRosesPage: React.FC = () => {
     }
   };
 
+  const handleDeleteRose = async (roseId: string, roseName: string) => {
+    if (!window.confirm(`Czy na pewno chcesz usunąć Różę "${roseName}"? Tej akcji nie można cofnąć, a wszyscy członkowie zostaną z niej usunięci.`)) {
+        return;
+    }
+    setIsDeletingRose(roseId);
+    setDeleteRoseError(null);
+    setDeleteRoseSuccess(null);
+    setCreateRoseError(null); // Clear other form errors
+    setCreateRoseSuccess(null);
+    setSingleRoseTriggerMessage(null);
+    setTriggerMysteriesGlobalMessage(null);
+
+    try {
+        await apiClient.delete(`/admin/roses/${roseId}`);
+        setDeleteRoseSuccess(`Róża "${roseName}" została pomyślnie usunięta.`);
+        fetchRoses(); // Odśwież listę Róż
+        setTimeout(() => setDeleteRoseSuccess(null), 3000);
+    } catch (err: any) {
+        setDeleteRoseError(err.response?.data?.error || `Nie udało się usunąć Róży "${roseName}".`);
+        setTimeout(() => setDeleteRoseError(null), 5000);
+    } finally {
+        setIsDeletingRose(null);
+    }
+  };
+
+  const generalActionInProgress = !!editingRose || isCreatingRose || isUpdatingRose || isTriggeringMysteriesGlobal || isDeletingRose !== null || isTriggeringSingleRose !== null;
+
   return (
-    <div className="space-y-8 p-1"> {/* Dodano p-1 dla małego marginesu od krawędzi panelu admina */}
+    <div className="space-y-8 p-1">
       <section className="bg-slate-50 p-4 sm:p-6 rounded-lg shadow-md border border-slate-200">
         <h3 className="text-xl font-semibold text-gray-800 mb-4">Stwórz Nową Różę</h3>
         {createRoseError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{createRoseError}</p>}
@@ -177,17 +212,20 @@ const AdminRosesPage: React.FC = () => {
             <div>
                 <label htmlFor="createRoseName" className="block text-sm font-medium text-gray-700">Nazwa Róży <span className="text-red-500">*</span></label>
                 <input type="text" id="createRoseName" value={createRoseName} onChange={(e) => setCreateRoseName(e.target.value)} required
-                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"/>
+                       disabled={generalActionInProgress}
+                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100"/>
             </div>
             <div>
                 <label htmlFor="createRoseDescription" className="block text-sm font-medium text-gray-700">Opis (opcjonalnie)</label>
                 <textarea id="createRoseDescription" value={createRoseDescription} onChange={(e) => setCreateRoseDescription(e.target.value)} rows={2}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"/>
+                          disabled={generalActionInProgress}
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100"/>
             </div>
             <div>
                 <label htmlFor="createSelectedZelatorId" className="block text-sm font-medium text-gray-700">Wybierz Zelatora <span className="text-red-500">*</span></label>
                 <select id="createSelectedZelatorId" value={createSelectedZelatorId} onChange={(e) => setCreateSelectedZelatorId(e.target.value)} required
-                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        disabled={generalActionInProgress || availableZelators.length === 0}
+                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md disabled:bg-gray-100">
                     <option value="">-- Wybierz Zelatora --</option>
                     {availableZelators.map(zelator => (
                         <option key={zelator.id} value={zelator.id}>
@@ -196,7 +234,7 @@ const AdminRosesPage: React.FC = () => {
                     ))}
                 </select>
             </div>
-            <button type="submit" disabled={isCreatingRose}
+            <button type="submit" disabled={isCreatingRose || generalActionInProgress}
                     className="w-full sm:w-auto px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-60">
                 {isCreatingRose ? 'Tworzenie Róży...' : 'Stwórz Różę'}
             </button>
@@ -212,7 +250,7 @@ const AdminRosesPage: React.FC = () => {
         )}
         <button
             onClick={handleTriggerMysteryAssignmentGlobal}
-            disabled={isTriggeringMysteriesGlobal}
+            disabled={isTriggeringMysteriesGlobal || generalActionInProgress}
             className="w-full sm:w-auto px-6 py-2 text-sm font-medium text-white bg-orange-500 rounded-md shadow-sm hover:bg-orange-600 disabled:opacity-60"
         >
             {isTriggeringMysteriesGlobal ? 'Inicjowanie Globalne...' : 'Uruchom Przydział dla Wszystkich Róż'}
@@ -222,11 +260,14 @@ const AdminRosesPage: React.FC = () => {
 
       <section>
         <h3 className="text-xl font-semibold text-gray-800 mb-4 pt-4 border-t mt-8">Lista Róż w Systemie</h3>
+        {deleteRoseError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{deleteRoseError}</p>}
+        {deleteRoseSuccess && <p className="mb-3 p-2 text-sm text-green-600 bg-green-100 rounded">{deleteRoseSuccess}</p>}
+        
         {isLoadingRoses ? (
            <p className="text-gray-600 p-4">Ładowanie listy Róż...</p>
         ) : rosesError ? (
            <p className="text-red-500 bg-red-100 p-3 rounded-md">{rosesError}</p>
-        ) : roses.length === 0 ? (
+        ) : roses.length === 0 && !isLoadingRoses && !rosesError ? (
            <p className="p-4">Brak Róż w systemie. Stwórz pierwszą!</p>
         ) : (
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -244,19 +285,25 @@ const AdminRosesPage: React.FC = () => {
                        <div className="mt-4 flex flex-wrap gap-2 items-center">
                            <button
                                onClick={() => openEditRoseModal(rose)}
-                               className="px-3 py-1.5 text-xs font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600"
+                               disabled={isDeletingRose !== null || !!editingRose || isTriggeringSingleRose !== null || isCreatingRose || isUpdatingRose}
+                               className="px-3 py-1.5 text-xs font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                            >
                                Edytuj
                            </button>
                            <button
                                onClick={() => handleTriggerMysteryAssignmentForRose(rose.id, rose.name)}
-                               disabled={isTriggeringSingleRose === rose.id}
-                               className="px-3 py-1.5 text-xs font-medium text-white bg-teal-500 rounded-md hover:bg-teal-600 disabled:opacity-60"
+                               disabled={isTriggeringSingleRose === rose.id || isDeletingRose !== null || !!editingRose || isCreatingRose || isUpdatingRose || isTriggeringSingleRose !== null && isTriggeringSingleRose !== rose.id}
+                               className="px-3 py-1.5 text-xs font-medium text-white bg-teal-500 rounded-md hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
                            >
                                {isTriggeringSingleRose === rose.id ? 'Inicjuję...' : 'Przydziel Tajemnice'}
                            </button>
-                           {/* TODO: Przycisk Usuń Różę (DELETE /admin/roses/:roseId) */}
-                           {/* <button className="px-3 py-1.5 text-xs font-medium text-white bg-red-500 rounded-md hover:bg-red-600">Usuń Różę</button> */}
+                           <button 
+                               onClick={() => handleDeleteRose(rose.id, rose.name)}
+                               disabled={isDeletingRose !== null || !!editingRose || isTriggeringSingleRose !== null || isCreatingRose || isUpdatingRose}
+                               className="px-3 py-1.5 text-xs font-medium text-white bg-red-500 rounded-md hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                               {isDeletingRose === rose.id ? 'Usuwanie...' : 'Usuń Różę'}
+                           </button>
                        </div>
                        {singleRoseTriggerMessage && singleRoseTriggerMessage.id === rose.id && (
                            <p className={`mt-2 p-2 text-xs rounded-md ${singleRoseTriggerMessage.isError ? 'text-red-700 bg-red-100' : 'text-green-700 bg-green-100'}`}>
@@ -269,7 +316,6 @@ const AdminRosesPage: React.FC = () => {
         )}
       </section>
 
-      {/* Modal do Edycji Róży */}
       {editingRose && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-4">
             <div className="relative bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-lg">
@@ -294,7 +340,8 @@ const AdminRosesPage: React.FC = () => {
                     <div>
                         <label htmlFor="editSelectedZelatorId" className="block text-sm font-medium text-gray-700">Zelator <span className="text-red-500">*</span></label>
                         <select id="editSelectedZelatorId" value={editSelectedZelatorId} onChange={(e) => setEditSelectedZelatorId(e.target.value)} required
-                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                disabled={availableZelators.length === 0}
+                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md disabled:bg-gray-100">
                             <option value="">-- Wybierz nowego Zelatora --</option>
                             {availableZelators.map(zelator => (
                                 <option key={zelator.id} value={zelator.id}>

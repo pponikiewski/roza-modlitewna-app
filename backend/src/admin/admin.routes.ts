@@ -8,7 +8,8 @@ import {
     triggerMysteryAssignment, // Dodaj ten import
     getRoseDetails,
     updateRoseDetails,
-    triggerMysteryAssignmentForSpecificRose   // <<<< DODAJ IMPORT
+    triggerMysteryAssignmentForSpecificRose,
+    deleteRose   // <<<< DODAJ IMPORT
 } from './admin.controller';
 import { authenticateToken, isAdmin, authorizeRole  } from '../auth/auth.middleware';
 // UserRole nie jest bezpośrednio potrzebny w tym pliku, jeśli używamy isAdmin
@@ -69,6 +70,14 @@ router.patch(
   authenticateToken,
   isAdmin, // Tylko Admin może edytować dowolną Różę
   updateRoseDetails
+);
+
+// NOWA TRASA: Usuwanie Róży przez Admina
+router.delete(
+  '/roses/:roseId', // Używamy DELETE
+  authenticateToken,
+  isAdmin,
+  deleteRose
 );
 
 export default router;

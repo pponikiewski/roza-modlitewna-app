@@ -335,3 +335,45 @@ export const triggerMysteryAssignmentForSpecificRose = async (req: Authenticated
     next(error);
   }
 };
+
+// NOWA FUNKCJA: Usuwanie Róży przez Admina
+export const deleteRose = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { roseId } = req.params;
+  const adminUser = req.user;
+
+  console.log(`[deleteRose] Admin ${adminUser?.email} próbuje usunąć Różę ${roseId}.`);
+  try {
+    if (adminUser?.role !== UserRole.ADMIN) {
+      res.status(403).json({ error: 'Brak uprawnień administratora.' });
+      return;
+    }
+
+    // Sprawdź, czy Róża istnieje, zanim spróbujesz ją usunąć
+    const existingRose = await prisma.rose.findUnique({ where: { id: roseId } });
+    if (!existingRose) {
+      res.status(404).json({ error: `Róża o ID ${roseId} nie została znaleziona.` });
+      return;
+    }
+
+    // Usuwanie Róży. Dzięki onDelete: Cascade w schemacie Prisma, powiązane:
+    // - RoseMembership (członkostwa)
+    // - AssignedMysteryHistory (historia tajemnic, przez RoseMembership)
+    // - RoseMainIntention (główne intencje Róży)
+    // zostaną usunięte automatycznie.
+    // UserIntention (intencje użytkowników) mają onDelete: SetNull dla sharedWithRoseId, więc stracą powiązanie.
+    
+    await prisma.rose.delete({
+      where: { id: roseId },
+    });
+
+    console.log(`[deleteRose] Pomyślnie usunięto Różę ${roseId}.`);
+    res.status(200).json({ message: `Róża "${existingRose.name}" (ID: ${roseId}) została pomyślnie usunięta.` });
+
+  } catch (error) {
+    console.error(`[deleteRose] Błąd podczas usuwania Róży ${roseId}:`, error);
+    // Możliwy błąd: jeśli istnieją jeszcze jakieś relacje, które nie mają onDelete: Cascade lub SetNull,
+    // a blokują usunięcie (np. jeśli User.rosesManaged nie miałoby zdefiniowanej odwrotnej relacji poprawnie).
+    // W naszym schemacie powinno być OK.
+    next(error);
+  }
+};
