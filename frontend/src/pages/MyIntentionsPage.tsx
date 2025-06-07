@@ -3,32 +3,31 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
 import type { UserIntention, UserMembership } from '../types/rosary.types';
-import { toast } from 'sonner'; // <<<< NOWY IMPORT
+import { toast } from 'sonner';
+import ConfirmationDialog from '../components/ConfirmationDialog'; // Import komponentu modala
 
 const MyIntentionsPage: React.FC = () => {
   const { user } = useAuth();
   
   const [myIntentions, setMyIntentions] = useState<UserIntention[]>([]);
   const [isLoadingIntentions, setIsLoadingIntentions] = useState(true);
-  // const [intentionsError, setIntentionsError] = useState<string | null>(null); // Zastąpione toastem
 
   const [newIntentionText, setNewIntentionText] = useState('');
   const [shareWithRoseIdOnCreate, setShareWithRoseIdOnCreate] = useState<string>('');
   const [isAddingIntention, setIsAddingIntention] = useState(false);
-  // const [addIntentionError, setAddIntentionError] = useState<string | null>(null); // Zastąpione toastem
-  // const [addIntentionSuccess, setAddIntentionSuccess] = useState<string | null>(null); // Zastąpione toastem
 
   const [editingIntention, setEditingIntention] = useState<UserIntention | null>(null);
   const [editIntentionText, setEditIntentionText] = useState('');
   const [editShareWithRoseId, setEditShareWithRoseId] = useState<string>('');
   const [isUpdatingIntention, setIsUpdatingIntention] = useState(false);
-  // const [updateIntentionError, setUpdateIntentionError] = useState<string | null>(null); // Zastąpione toastem
-  // const [updateIntentionSuccess, setUpdateIntentionSuccess] = useState<string | null>(null); // Zastąpione toastem
 
-  const [isDeletingIntention, setIsDeletingIntention] = useState<string | null>(null);
-  // const [deleteIntentionError, setDeleteIntentionError] = useState<string | null>(null); // Zastąpione toastem
+  const [isDeletingIntention, setIsDeletingIntention] = useState<string | null>(null); // Używane do pokazywania "Usuwanie..."
   
   const [myMemberships, setMyMemberships] = useState<UserMembership[]>([]);
+
+  // Stany dla modala potwierdzenia
+  const [isConfirmDeleteDialogOpen, setIsConfirmDeleteDialogOpen] = useState(false);
+  const [intentionIdToProcess, setIntentionIdToProcess] = useState<string | null>(null);
 
   const fetchMyMemberships = useCallback(async () => {
     if (!user) return;
@@ -44,12 +43,10 @@ const MyIntentionsPage: React.FC = () => {
   const fetchMyIntentions = useCallback(async () => {
     if (!user) return;
     setIsLoadingIntentions(true);
-    // setIntentionsError(null); // Już niepotrzebne
     try {
         const response = await apiClient.get<UserIntention[]>('/me/intentions');
         setMyIntentions(response.data);
     } catch (err: any) {
-        // setIntentionsError(err.response?.data?.error || 'Nie udało się pobrać Twoich intencji.');
         toast.error(err.response?.data?.error || 'Nie udało się pobrać Twoich intencji.');
         setMyIntentions([]);
     } finally {
@@ -74,10 +71,7 @@ const MyIntentionsPage: React.FC = () => {
         toast.error("Wybrano nieprawidłową Różę do udostępnienia lub nie należysz do tej Róży.");
         return;
     }
-
     setIsAddingIntention(true);
-    // setAddIntentionError(null); // Już niepotrzebne
-    // setAddIntentionSuccess(null); // Już niepotrzebne
     try {
         const payload: { text: string; isSharedWithRose: boolean; sharedWithRoseId?: string } = {
             text: newIntentionText,
@@ -86,13 +80,11 @@ const MyIntentionsPage: React.FC = () => {
         if (shareWithRoseIdOnCreate) {
             payload.sharedWithRoseId = shareWithRoseIdOnCreate;
         }
-
         await apiClient.post<UserIntention>('/me/intentions', payload);
         toast.success("Intencja została pomyślnie dodana.");
         setNewIntentionText('');
         setShareWithRoseIdOnCreate('');
         fetchMyIntentions();
-        // setTimeout(() => setAddIntentionSuccess(null), 3000); // Już niepotrzebne
     } catch (err: any) {
         toast.error(err.response?.data?.error || "Nie udało się dodać intencji.");
     } finally {
@@ -104,8 +96,6 @@ const MyIntentionsPage: React.FC = () => {
     setEditingIntention(intention);
     setEditIntentionText(intention.text);
     setEditShareWithRoseId(intention.sharedWithRoseId || '');
-    // setUpdateIntentionError(null); // Już niepotrzebne
-    // setUpdateIntentionSuccess(null); // Już niepotrzebne
   };
 
   const closeEditIntentionModal = () => {
@@ -122,23 +112,16 @@ const MyIntentionsPage: React.FC = () => {
         toast.error("Wybrano nieprawidłową Różę do udostępnienia lub nie należysz do tej Róży.");
         return;
     }
-
     setIsUpdatingIntention(true);
-    // setUpdateIntentionError(null); // Już niepotrzebne
-    // setUpdateIntentionSuccess(null); // Już niepotrzebne
     try {
       const payload: { text: string; isSharedWithRose: boolean; sharedWithRoseId?: string | null } = {
         text: editIntentionText,
         isSharedWithRose: !!editShareWithRoseId,
         sharedWithRoseId: editShareWithRoseId || null,
       };
-
       await apiClient.patch(`/me/intentions/${editingIntention.id}`, payload);
       toast.success("Intencja została pomyślnie zaktualizowana.");
       fetchMyIntentions();
-      // Opóźnienie zamknięcia modala, aby użytkownik zobaczył toast sukcesu wewnątrz modala
-      // lub można zamknąć modal od razu i toast pojawi się na głównej stronie.
-      // Wybieram drugą opcję, bo sonner domyślnie wyświetla toasty globalnie.
       closeEditIntentionModal(); 
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Nie udało się zaktualizować intencji.");
@@ -147,24 +130,27 @@ const MyIntentionsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteIntention = async (intentionId: string) => {
-     // `window.confirm` można zostawić lub zastąpić modalem potwierdzającym.
-     // Dla tego przykładu zostawiam `window.confirm`.
-     if (!window.confirm("Czy na pewno chcesz usunąć tę intencję? Tej akcji nie można cofnąć.")) {
-         return;
-     }
-     setIsDeletingIntention(intentionId);
-     // setDeleteIntentionError(null); // Już niepotrzebne
-     try {
-         await apiClient.delete(`/me/intentions/${intentionId}`);
-         toast.success("Intencja została usunięta.");
-         setMyIntentions(prev => prev.filter(intention => intention.id !== intentionId));
-     } catch (err:any) {
-         console.error("Błąd usuwania intencji:", err);
-         toast.error(err.response?.data?.error || "Nie udało się usunąć intencji.");
-     } finally {
-         setIsDeletingIntention(null);
-     }
+  const confirmDeleteIntention = async () => {
+    if (!intentionIdToProcess) return;
+
+    setIsDeletingIntention(intentionIdToProcess); // Ustawienie flagi ładowania dla konkretnej intencji
+    try {
+        await apiClient.delete(`/me/intentions/${intentionIdToProcess}`);
+        toast.success("Intencja została usunięta.");
+        setMyIntentions(prev => prev.filter(intention => intention.id !== intentionIdToProcess));
+    } catch (err:any) {
+        console.error("Błąd usuwania intencji:", err);
+        toast.error(err.response?.data?.error || "Nie udało się usunąć intencji.");
+    } finally {
+        setIsDeletingIntention(null); // Zresetuj flagę ładowania
+        setIntentionIdToProcess(null); // Zresetuj ID przetwarzanej intencji
+        // setIsConfirmDeleteDialogOpen(false); // Modal zostanie zamknięty przez onConfirm w ConfirmationDialog
+    }
+  };
+
+  const handleDeleteIntentionClick = (intentionId: string) => {
+    setIntentionIdToProcess(intentionId);
+    setIsConfirmDeleteDialogOpen(true);
   };
 
  if (isLoadingIntentions) {
@@ -176,13 +162,13 @@ const MyIntentionsPage: React.FC = () => {
  }
 
  return (
+    <>
      <div className="p-4 md:p-8 bg-slate-100">
        <div className="max-w-3xl mx-auto space-y-8">
          <h1 className="text-3xl font-bold text-gray-800 border-b pb-4">Moje Intencje Modlitewne</h1>
 
          <section className="bg-white p-6 rounded-lg shadow-xl">
            <h2 className="text-xl font-semibold text-gray-700 mb-4">Dodaj Nową Intencję</h2>
-           {/* Usunięto wyświetlanie addIntentionError i addIntentionSuccess */}
            <form onSubmit={handleAddIntentionSubmit} className="space-y-4">
              <div>
                  <label htmlFor="newIntentionText" className="block text-sm font-medium text-gray-700">Treść intencji <span className="text-red-500">*</span></label>
@@ -218,7 +204,7 @@ const MyIntentionsPage: React.FC = () => {
              )}
              <button
                  type="submit"
-                 disabled={isAddingIntention}
+                 disabled={isAddingIntention || isConfirmDeleteDialogOpen}
                  className="w-full sm:w-auto px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60"
              >
                  {isAddingIntention ? 'Dodawanie...' : 'Dodaj Intencję'}
@@ -228,9 +214,8 @@ const MyIntentionsPage: React.FC = () => {
 
          <section className="bg-white p-6 rounded-lg shadow-xl">
            <h2 className="text-xl font-semibold text-gray-700 mb-4">Zapisane Intencje</h2>
-           {/* Usunięto wyświetlanie intentionsError i deleteIntentionError, toasty są globalne */}
            
-           {myIntentions.length === 0 && !isLoadingIntentions /* && !intentionsError */ ? ( // Usunięto !intentionsError, bo nie ma już tego stanu
+           {myIntentions.length === 0 && !isLoadingIntentions ? (
              <p className="text-gray-600 text-center py-4">Nie masz jeszcze żadnych zapisanych intencji.</p>
            ) : (
              <div className="space-y-4">
@@ -253,14 +238,14 @@ const MyIntentionsPage: React.FC = () => {
                              <button 
                                  onClick={() => openEditIntentionModal(intention)}
                                  className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed"
-                                 disabled={isDeletingIntention === intention.id || !!editingIntention || isUpdatingIntention}
+                                 disabled={isDeletingIntention === intention.id || !!editingIntention || isUpdatingIntention || isConfirmDeleteDialogOpen}
                              >
                                  Edytuj
                              </button>
                              <button 
-                                 onClick={() => handleDeleteIntention(intention.id)}
+                                 onClick={() => handleDeleteIntentionClick(intention.id)}
                                  className="text-xs font-medium text-red-600 hover:text-red-800 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed"
-                                 disabled={isDeletingIntention === intention.id || !!editingIntention || isUpdatingIntention}
+                                 disabled={isDeletingIntention === intention.id || !!editingIntention || isUpdatingIntention || isConfirmDeleteDialogOpen}
                              >
                                  {isDeletingIntention === intention.id ? 'Usuwanie...' : 'Usuń'}
                              </button>
@@ -278,7 +263,6 @@ const MyIntentionsPage: React.FC = () => {
                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                      </button>
                      <h3 className="text-xl sm:text-2xl font-semibold mb-5 text-gray-800 border-b pb-3">Edytuj Intencję</h3>
-                     {/* Usunięto updateIntentionError i updateIntentionSuccess z modala, toasty są globalne */}
                      
                      <form onSubmit={handleUpdateIntentionSubmit} className="space-y-4">
                          <div>
@@ -292,7 +276,7 @@ const MyIntentionsPage: React.FC = () => {
                                  required
                              />
                          </div>
-                         {myMemberships.length > 0 && (
+                         {myMemberships.length > 0 && ( 
                              <div>
                                  <label htmlFor="editShareWithRoseId" className="block text-sm font-medium text-gray-700">
                                      Udostępnij Róży:
@@ -316,13 +300,14 @@ const MyIntentionsPage: React.FC = () => {
                              <button
                                  type="button"
                                  onClick={closeEditIntentionModal}
+                                 disabled={isUpdatingIntention || isConfirmDeleteDialogOpen}
                                  className="px-5 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                              >
                                  Anuluj
                              </button>
                              <button
                                  type="submit"
-                                 disabled={isUpdatingIntention}
+                                 disabled={isUpdatingIntention || isConfirmDeleteDialogOpen}
                                  className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
                              >
                                  {isUpdatingIntention ? 'Zapisywanie...' : 'Zapisz Zmiany'}
@@ -334,6 +319,19 @@ const MyIntentionsPage: React.FC = () => {
          )}
        </div>
      </div>
+     <ConfirmationDialog
+        isOpen={isConfirmDeleteDialogOpen}
+        onClose={() => {
+            setIsConfirmDeleteDialogOpen(false);
+            setIntentionIdToProcess(null); // Zawsze resetuj ID przy zamykaniu
+        }}
+        onConfirm={confirmDeleteIntention}
+        title="Potwierdzenie Usunięcia Intencji"
+        message="Czy na pewno chcesz usunąć tę intencję? Tej akcji nie można cofnąć."
+        confirmButtonText="Usuń Intencję"
+        confirmButtonColor="red"
+      />
+    </>
    );
 };
 
