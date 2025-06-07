@@ -9,7 +9,8 @@ import {
     getRoseDetails,
     updateRoseDetails,
     triggerMysteryAssignmentForSpecificRose,
-    deleteRose   // <<<< DODAJ IMPORT
+    deleteRose,
+    deleteUserByAdmin   // <<<< DODAJ IMPORT
 } from './admin.controller';
 import { authenticateToken, isAdmin, authorizeRole  } from '../auth/auth.middleware';
 // UserRole nie jest bezpośrednio potrzebny w tym pliku, jeśli używamy isAdmin
@@ -78,6 +79,16 @@ router.delete(
   authenticateToken,
   isAdmin,
   deleteRose
+);
+
+// --- Zarządzanie Użytkownikami ---
+router.patch('/users/:userIdToUpdate/role', authenticateToken, isAdmin, updateUserRole);
+// NOWA TRASA: Usuwanie użytkownika przez Admina
+router.delete(
+  '/users/:userIdToDelete',
+  authenticateToken,
+  isAdmin,
+  deleteUserByAdmin
 );
 
 export default router;

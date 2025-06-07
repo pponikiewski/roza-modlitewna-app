@@ -3,30 +3,31 @@ import React, { useEffect, useState, useCallback } from 'react';
 import apiClient from '../services/api';
 import type { UserAdminView } from '../types/admin.types';
 import { UserRoles, type UserRole } from '../types/user.types';
-import { toast } from 'sonner'; // <<<< ZMIANA: Dodano import
+import { toast } from 'sonner';
+import ConfirmationDialog from '../components/ConfirmationDialog'; // Upewnij się, że ścieżka jest poprawna
 
 const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<UserAdminView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // const [error, setError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
   const [editingUser, setEditingUser] = useState<UserAdminView | null>(null);
   const [newRole, setNewRole] = useState<UserRole>(UserRoles.MEMBER);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
-  // const [updateRoleError, setUpdateRoleError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
-  // const [updateRoleSuccess, setUpdateRoleSuccess] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
   const [viewingUser, setViewingUser] = useState<UserAdminView | null>(null);
 
+  // Stany dla usuwania użytkownika
+  const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
+  const [isConfirmDeleteDialogOpen, setIsConfirmDeleteDialogOpen] = useState(false);
+  const [userToProcess, setUserToProcess] = useState<UserAdminView | null>(null);
+
   const fetchUsers = useCallback(async () => {
      setIsLoading(true);
-     // setError(null); // <<<< ZMIANA: Usunięto
      try {
-         const response = await apiClient.get<UserAdminView[]>('/users');
+         const response = await apiClient.get<UserAdminView[]>('/users'); // Zakładam, że /users to endpoint admina do pobierania wszystkich użytkowników
          setUsers(response.data);
      } catch (err:any) {
-         // setError(err.response?.data?.error || "Nie udało się pobrać listy użytkowników."); // <<<< ZMIANA: Usunięto
-         toast.error(err.response?.data?.error || "Nie udało się pobrać listy użytkowników."); // <<<< ZMIANA: Dodano toast
+         toast.error(err.response?.data?.error || "Nie udało się pobrać listy użytkowników.");
      } finally {
          setIsLoading(false);
      }
@@ -39,9 +40,9 @@ const AdminUsersPage: React.FC = () => {
   const openEditRoleModal = (userToEdit: UserAdminView) => {
      setEditingUser(userToEdit);
      setNewRole(userToEdit.role as UserRole);
-     // setUpdateRoleError(null); // <<<< ZMIANA: Usunięto
-     // setUpdateRoleSuccess(null); // <<<< ZMIANA: Usunięto
      setViewingUser(null);
+     setUserToProcess(null); // Zamknij inne akcje
+     setIsConfirmDeleteDialogOpen(false);
   };
 
   const closeEditRoleModal = () => {
@@ -53,21 +54,13 @@ const AdminUsersPage: React.FC = () => {
      if (!editingUser) return;
 
      setIsUpdatingRole(true);
-     // setUpdateRoleError(null); // <<<< ZMIANA: Usunięto
-     // setUpdateRoleSuccess(null); // <<<< ZMIANA: Usunięto
      try {
          await apiClient.patch(`/admin/users/${editingUser.id}/role`, { newRole });
-         // setUpdateRoleSuccess(`Rola dla ${editingUser.name || editingUser.email} została pomyślnie zmieniona na ${newRole}.`); // <<<< ZMIANA: Usunięto
-         toast.success(`Rola dla ${editingUser.name || editingUser.email} została pomyślnie zmieniona na ${newRole}.`); // <<<< ZMIANA: Dodano toast
+         toast.success(`Rola dla ${editingUser.name || editingUser.email} została pomyślnie zmieniona na ${newRole}.`);
          fetchUsers();
-         // setTimeout(() => { // Można usunąć setTimeout, toast zniknie sam
-             closeEditRoleModal();
-             // setUpdateRoleSuccess(null); // <<<< ZMIANA: Usunięto
-         // }, 1500);
+         closeEditRoleModal();
      } catch (err: any) {
-         // setUpdateRoleError(err.response?.data?.error || "Nie udało się zaktualizować roli."); // <<<< ZMIANA: Usunięto
-         toast.error(err.response?.data?.error || "Nie udało się zaktualizować roli."); // <<<< ZMIANA: Dodano toast
-         // setTimeout(() => setUpdateRoleError(null), 5000); // <<<< ZMIANA: Usunięto
+         toast.error(err.response?.data?.error || "Nie udało się zaktualizować roli.");
      } finally {
          setIsUpdatingRole(false);
      }
@@ -76,19 +69,51 @@ const AdminUsersPage: React.FC = () => {
   const openUserDetailsModal = (userToView: UserAdminView) => {
     setViewingUser(userToView);
     setEditingUser(null);
+    setUserToProcess(null);
+    setIsConfirmDeleteDialogOpen(false);
   };
 
   const closeUserDetailsModal = () => {
     setViewingUser(null);
   };
 
+  // Otwieranie modala potwierdzającego usunięcie
+  const handleDeleteUserClick = (userToDelete: UserAdminView) => {
+    setUserToProcess(userToDelete);
+    setIsConfirmDeleteDialogOpen(true);
+    setEditingUser(null); // Zamknij inne modale/akcje
+    setViewingUser(null);
+  };
+
+  // Faktyczne usuwanie użytkownika po potwierdzeniu
+  const confirmDeleteUser = async () => {
+    if (!userToProcess) return;
+
+    setIsDeletingUser(userToProcess.id);
+    try {
+      // Endpoint API do usuwania użytkownika
+      await apiClient.delete(`/admin/users/${userToProcess.id}`);
+      toast.success(`Użytkownik ${userToProcess.name || userToProcess.email} został pomyślnie usunięty.`);
+      fetchUsers(); // Odśwież listę
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || `Nie udało się usunąć użytkownika ${userToProcess.name || userToProcess.email}.`);
+    } finally {
+      setIsDeletingUser(null);
+      setUserToProcess(null);
+      // setIsConfirmDeleteDialogOpen(false); // Modal zostanie zamknięty przez onConfirm w ConfirmationDialog
+    }
+  };
+
+
   if (isLoading) return <p className="text-gray-600 p-4">Ładowanie użytkowników...</p>;
-  // if (error) return <p className="text-red-500 bg-red-100 p-3 rounded-md">{error}</p>; // <<<< ZMIANA: Usunięto
+
+  const anyModalOpen = !!editingUser || !!viewingUser || isConfirmDeleteDialogOpen;
 
   return (
+    <>
     <div>
       <h2 className="text-2xl font-semibold text-gray-700 mb-6">Lista Użytkowników Systemu</h2>
-      {users.length === 0 && !isLoading ? ( // <<<< ZMIANA: Dodano !isLoading
+      {users.length === 0 && !isLoading ? (
          <p>Brak zarejestrowanych użytkowników.</p>
       ) : (
          <div className="overflow-x-auto shadow-md rounded-lg">
@@ -122,19 +147,28 @@ const AdminUsersPage: React.FC = () => {
                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
                                  <button
                                      onClick={() => openUserDetailsModal(user)}
-                                     className="text-blue-600 hover:text-blue-900 hover:underline"
-                                     disabled={!!editingUser || !!viewingUser}
+                                     className="text-blue-600 hover:text-blue-900 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed"
+                                     disabled={anyModalOpen || isDeletingUser === user.id}
                                  >
                                      Szczegóły
                                  </button>
-                                 {user.role !== UserRoles.ADMIN && (
+                                 {user.role !== UserRoles.ADMIN && ( // Admin nie może zmieniać roli innego admina ani usuwać go
+                                    <>
                                      <button 
                                          onClick={() => openEditRoleModal(user)}
-                                         className="text-indigo-600 hover:text-indigo-900 hover:underline"
-                                         disabled={!!editingUser || !!viewingUser}
+                                         className="text-indigo-600 hover:text-indigo-900 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed"
+                                         disabled={anyModalOpen || isDeletingUser === user.id}
                                      >
                                          Zmień Rolę
                                      </button>
+                                     <button
+                                        onClick={() => handleDeleteUserClick(user)}
+                                        className="text-red-600 hover:text-red-900 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed"
+                                        disabled={anyModalOpen || isDeletingUser === user.id}
+                                     >
+                                        {isDeletingUser === user.id ? 'Usuwanie...' : 'Usuń'}
+                                     </button>
+                                    </>
                                  )}
                              </td>
                          </tr>
@@ -145,14 +179,13 @@ const AdminUsersPage: React.FC = () => {
       )}
 
      {editingUser && (
+        // ... modal edycji roli bez zmian ...
          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-4">
              <div className="relative bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md">
                  <button onClick={closeEditRoleModal} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                  </button>
                  <h3 className="text-xl font-semibold mb-4 text-gray-800">Zmień rolę dla: <span className="font-normal">{editingUser.name || editingUser.email}</span></h3>
-                 {/* {updateRoleError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{updateRoleError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
-                 {/* {updateRoleSuccess && <p className="mb-3 p-2 text-sm text-green-600 bg-green-100 rounded">{updateRoleSuccess}</p>} */} {/* <<<< ZMIANA: Usunięto */}
                  
                  <form onSubmit={handleRoleChangeSubmit}>
                      <div className="mb-5">
@@ -190,6 +223,7 @@ const AdminUsersPage: React.FC = () => {
      )}
 
      {viewingUser && (
+        // ... modal szczegółów użytkownika bez zmian ...
          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-4">
              <div className="relative bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md">
                  <button onClick={closeUserDetailsModal} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
@@ -224,6 +258,19 @@ const AdminUsersPage: React.FC = () => {
          </div>
      )}
     </div>
+    <ConfirmationDialog
+      isOpen={isConfirmDeleteDialogOpen}
+      onClose={() => {
+        setIsConfirmDeleteDialogOpen(false);
+        setUserToProcess(null);
+      }}
+      onConfirm={confirmDeleteUser}
+      title="Potwierdzenie Usunięcia Użytkownika"
+      message={`Czy na pewno chcesz usunąć użytkownika ${userToProcess?.name || userToProcess?.email || ''}? Tej akcji nie można cofnąć, a wszystkie powiązane dane (np. członkostwa, intencje) mogą zostać usunięte lub zanonimizowane zgodnie z logiką backendu.`}
+      confirmButtonText="Usuń Użytkownika"
+      confirmButtonColor="red"
+    />
+    </>
   );
 };
 

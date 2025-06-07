@@ -377,3 +377,75 @@ export const deleteRose = async (req: AuthenticatedRequest, res: Response, next:
     next(error);
   }
 };
+
+// NOWA FUNKCJA: Usuwanie użytkownika przez Admina
+export const deleteUserByAdmin = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { userIdToDelete } = req.params;
+  const adminUser = req.user;
+
+  console.log(`[deleteUserByAdmin] Admin ${adminUser?.email} próbuje usunąć użytkownika ${userIdToDelete}.`);
+  try {
+    if (!adminUser || adminUser.role !== UserRole.ADMIN) {
+      res.status(403).json({ error: 'Brak uprawnień administratora.' });
+      return;
+    }
+
+    // Admin nie może usunąć samego siebie
+    if (userIdToDelete === adminUser.userId) {
+      res.status(400).json({ error: 'Administrator nie może usunąć swojego własnego konta.' });
+      return;
+    }
+
+    const userToDelete = await prisma.user.findUnique({
+      where: { id: userIdToDelete },
+    });
+
+    if (!userToDelete) {
+      res.status(404).json({ error: `Użytkownik o ID ${userIdToDelete} nie został znaleziony.` });
+      return;
+    }
+
+    // Admin nie może usunąć innego Admina (jeśli taka jest polityka)
+    // W naszym modelu jest tylko jeden Admin, ale to zabezpieczenie na przyszłość
+    if (userToDelete.role === UserRole.ADMIN) {
+      res.status(403).json({ error: 'Nie można usunąć innego administratora.' });
+      return;
+    }
+
+    // Rozważ konsekwencje usunięcia użytkownika:
+    // - Co z Różami, których był Zelatorem? (Obecnie schemat ma relację, ale nie onDelete: Cascade/SetNull od User do Rose.zelatorId)
+    //   Trzeba by to obsłużyć: albo uniemożliwić usunięcie Zelatora, jeśli zarządza Różami,
+    //   albo przypisać te Róże innemu Zelatorowi/Adminowi, albo usunąć Róże.
+    //   Najprościej na razie: uniemożliwić, jeśli jest Zelatorem.
+    // - Członkostwa w Różach (RoseMembership) zostaną usunięte dzięki onDelete: Cascade w relacji User->RoseMembership.
+    // - Historia Tajemnic (AssignedMysteryHistory) zostanie usunięta przez kaskadę z RoseMembership.
+    // - Główne Intencje Róż (RoseMainIntention), których był autorem, będą miały authorId: null dzięki onDelete: SetNull.
+    // - Jego Intencje Indywidualne (UserIntention) zostaną usunięte dzięki onDelete: Cascade.
+
+    if (userToDelete.role === UserRole.ZELATOR) {
+        const managedRosesCount = await prisma.rose.count({
+            where: { zelatorId: userIdToDelete }
+        });
+        if (managedRosesCount > 0) {
+            res.status(400).json({ 
+                error: `Nie można usunąć użytkownika, ponieważ jest Zelatorem ${managedRosesCount} Róż. Najpierw zmień Zelatora tych Róż lub je usuń.` 
+            });
+            return;
+        }
+    }
+    
+    // Usunięcie użytkownika
+    // To usunie też powiązane RoseMemberships, AssignedMysteryHistory, UserIntentions (dzięki onDelete: Cascade)
+    // i ustawi authorId na null w RoseMainIntentions.
+    await prisma.user.delete({
+      where: { id: userIdToDelete },
+    });
+
+    console.log(`[deleteUserByAdmin] Pomyślnie usunięto użytkownika ${userIdToDelete} przez Admina ${adminUser.email}.`);
+    res.status(200).json({ message: `Użytkownik ${userToDelete.email} (ID: ${userIdToDelete}) został pomyślnie usunięty.` });
+
+  } catch (error) {
+    console.error(`[deleteUserByAdmin] Błąd podczas usuwania użytkownika ${userIdToDelete}:`, error);
+    next(error);
+  }
+};
