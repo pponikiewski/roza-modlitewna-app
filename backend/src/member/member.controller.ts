@@ -226,63 +226,59 @@ export const getMysteryHistory = async (req: AuthenticatedRequest, res: Response
   }
 };
 
+
 export const listMyMemberships = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   console.log(`[listMyMemberships] Użytkownik ${req.user?.email} pobiera listę swoich członkostw w Różach.`);
   try {
-    if (!req.user || !req.user.userId) {
-      res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
-      return;
-    }
+    if (!req.user || !req.user.userId) { /* ... obsługa błędu ... */ return; }
     const userId = req.user.userId;
 
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
+    const SHARED_INTENTIONS_LIMIT = 3; // Ile udostępnionych intencji pokazać na dashboardzie
 
     const memberships = await prisma.roseMembership.findMany({
       where: { userId: userId },
       include: {
-        user: { // Dołącz dane użytkownika (chociaż to userId zalogowanego)
-            select: {id: true, email: true, name: true, role: true}
-        },
+        user: { select: {id: true, email: true, name: true, role: true} },
         rose: {
           select: {
             id: true,
             name: true,
             description: true,
-            zelator: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              }
-            },
-            mainIntentions: {
-              where: {
-                month: currentMonth,
-                year: currentYear,
-                isActive: true
-              },
+            zelator: { select: { id: true, name: true, email: true } },
+            mainIntentions: { // Aktualna główna intencja
+              where: { month: currentMonth, year: currentYear, isActive: true },
               orderBy: { createdAt: 'desc' },
               take: 1,
-              include: {
-                  author: {select: {id: true, name: true, email: true}}
-              }
+              include: { author: {select: {id: true, name: true, email: true}} }
+            },
+            sharedUserIntentions: { // <<<< NOWE: Kilka ostatnich udostępnionych intencji
+              where: { isSharedWithRose: true }, // Upewnij się, że są udostępnione tej Róży
+              orderBy: { createdAt: 'desc' },
+              take: SHARED_INTENTIONS_LIMIT,
+              include: { author: { select: { id: true, name: true, email: true } } }
             }
           }
         },
       },
-      orderBy: {
-        rose: { name: 'asc' }
-      }
+      orderBy: { rose: { name: 'asc' } }
     });
 
-    const membershipsWithMysteryDetails = memberships.map(memb => {
+    const membershipsWithProcessedData = memberships.map(memb => {
       const mysteryDetails = memb.currentAssignedMystery ? findMysteryById(memb.currentAssignedMystery) : null;
+      
       const currentMainIntention = memb.rose.mainIntentions && memb.rose.mainIntentions.length > 0 
                                   ? memb.rose.mainIntentions[0] 
                                   : null;
-      const { mainIntentions, ...roseData } = memb.rose;
+      
+      // Pobieramy udostępnione intencje (już są w memb.rose.sharedUserIntentions)
+      const sharedIntentionsForThisRose = memb.rose.sharedUserIntentions || [];
+
+      // Tworzymy nowy obiekt dla `rose` bez tablic `mainIntentions` i `sharedUserIntentions`
+      // aby uniknąć zagnieżdżenia i duplikacji danych w odpowiedzi dla `membership.rose`
+      const { mainIntentions, sharedUserIntentions, ...roseData } = memb.rose;
 
       return {
         id: memb.id,
@@ -293,20 +289,26 @@ export const listMyMemberships = async (req: AuthenticatedRequest, res: Response
         currentAssignedMystery: memb.currentAssignedMystery,
         mysteryConfirmedAt: memb.mysteryConfirmedAt ? memb.mysteryConfirmedAt.toISOString() : null,
         mysteryOrderIndex: memb.mysteryOrderIndex,
-        user: memb.user, // Dane użytkownika z include
-        rose: roseData,
+        user: memb.user,
+        rose: roseData, // Dane róży bez tablic intencji
         currentMysteryFullDetails: mysteryDetails,
-        currentMainIntentionForRose: currentMainIntention ? {
+        currentMainIntentionForRose: currentMainIntention ? { // Pojedyncza główna intencja
             ...currentMainIntention,
             createdAt: currentMainIntention.createdAt.toISOString(),
             updatedAt: currentMainIntention.updatedAt.toISOString(),
             author: currentMainIntention.authorId ? currentMainIntention.author : null,
         } : null,
+        sharedIntentionsPreview: sharedIntentionsForThisRose.map(si => ({ // Lista udostępnionych intencji (podgląd)
+            ...si,
+            createdAt: si.createdAt.toISOString(),
+            updatedAt: si.updatedAt.toISOString(),
+            author: si.authorId ? si.author : null, // Upewnij się, że autor jest poprawnie przekazywany
+        })) 
       };
     });
 
-    console.log(`[listMyMemberships] Znaleziono ${membershipsWithMysteryDetails.length} członkostw dla użytkownika ${req.user.email}.`);
-    res.json(membershipsWithMysteryDetails);
+    console.log(`[listMyMemberships] Znaleziono ${membershipsWithProcessedData.length} członkostw dla użytkownika ${req.user.email}.`);
+    res.json(membershipsWithProcessedData);
 
   } catch (error) {
     console.error('[listMyMemberships] Błąd:', error);

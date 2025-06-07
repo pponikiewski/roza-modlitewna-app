@@ -94,6 +94,13 @@ export interface UserMembership {
     rose: BasicRoseInfo; 
     currentMysteryFullDetails: RosaryMysteryDetails | null;
     currentMainIntentionForRose: RoseMainIntentionData | null; // <<<< NOWE POLE
+    sharedIntentionsPreview: UserIntention[]; // <<<< NOWE POLE: Tablica udostępnionych intencji
+    user: { // Dane zalogowanego użytkownika (autora członkostwa)
+        id: string;
+        email: string;
+        name?: string | null;
+        role: string; // Lub UserRole, jeśli masz ten typ na frontendzie
+    };
 }
 
 export interface UserIntention {

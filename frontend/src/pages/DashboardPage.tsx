@@ -6,14 +6,12 @@ import type {
     UserMembership, 
     MysteryHistoryResponse, 
     MysteryHistoryEntry,
-    // UserIntention // Już niepotrzebne tutaj, jeśli zarządzanie jest w MyIntentionsPage
-    // RoseMainIntentionData, // Ten typ jest zawarty w UserMembership.currentMainIntentionForRose
-    // RosaryMysteryDetails // Ten typ jest zawarty w UserMembership.currentMysteryFullDetails
+    // UserIntention // Included in UserMembership.sharedIntentionsPreview
 } from '../types/rosary.types';
-import { Link as RouterLink } from 'react-router-dom'; // Jeśli będziesz dodawał linki
+import { Link as RouterLink } from 'react-router-dom';
 
 const DashboardPage: React.FC = () => {
-  const { user, logout } = useAuth(); // logout jest teraz w App.tsx w nawigacji, ale zostawiam na wypadek potrzeby
+  const { user } = useAuth(); 
   
   const [myMemberships, setMyMemberships] = useState<UserMembership[]>([]);
   const [isLoadingMemberships, setIsLoadingMemberships] = useState(true);
@@ -25,9 +23,8 @@ const DashboardPage: React.FC = () => {
   const [historyError, setHistoryError] = useState<string | null>(null);
 
   const [confirmError, setConfirmError] = useState<string | null>(null);
-  const [isConfirming, setIsConfirming] = useState<string | null>(null); // Przechowuje ID członkostwa
+  const [isConfirming, setIsConfirming] = useState<string | null>(null);
 
-  // Pobieranie listy członkostw użytkownika
   const fetchMyMemberships = useCallback(async () => {
     if (!user) {
         setIsLoadingMemberships(false);
@@ -69,7 +66,7 @@ const DashboardPage: React.FC = () => {
          setMyMemberships(prevMemberships => 
             prevMemberships.map(memb => 
                 memb.id === membershipIdToConfirm 
-                ? response.data 
+                ? { ...memb, ...response.data } 
                 : memb
             )
          );
@@ -130,6 +127,7 @@ const DashboardPage: React.FC = () => {
         {myMemberships.length > 0 ? (
             myMemberships.map(membership => (
             <div key={membership.id} className="bg-white p-6 rounded-lg shadow-xl">
+                {/* --- Nagłówek Róży --- */}
                 <div className="border-b border-gray-200 pb-4 mb-4">
                     <h2 className="text-xl sm:text-2xl font-semibold text-indigo-700 mb-1">
                     {membership.rose.name}
@@ -140,6 +138,7 @@ const DashboardPage: React.FC = () => {
                     </p>
                 </div>
                 
+                {/* --- Główna Intencja Róży --- */}
                 {membership.currentMainIntentionForRose ? (
                 <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-md">
                     <h4 className="text-sm font-semibold text-amber-800 mb-1">Główna Intencja tej Róży (ten miesiąc):</h4>
@@ -154,6 +153,7 @@ const DashboardPage: React.FC = () => {
                 <p className="mb-6 text-sm text-gray-500 italic">Brak ustawionej głównej intencji dla tej Róży na bieżący miesiąc.</p>
                 )}
 
+                {/* --- Aktualna Tajemnica Użytkownika w tej Róży --- */}
                 {membership.currentMysteryFullDetails ? (
                 <div className="mb-6">
                     <h3 className="text-lg md:text-xl font-semibold text-blue-700">{membership.currentMysteryFullDetails.name}</h3>
@@ -192,6 +192,7 @@ const DashboardPage: React.FC = () => {
                 <p className="text-gray-600 mt-4 py-2">Nie masz jeszcze przydzielonej tajemnicy w tej Róży. Poczekaj na przydział.</p>
                 )}
 
+                {/* --- Historia Tajemnic dla tego członkostwa --- */}
                 <div className="mt-6 border-t border-gray-200 pt-4">
                     {selectedMembershipForHistory?.id === membership.id && isLoadingHistory ? (
                         <p className="text-sm text-gray-600">Ładowanie historii...</p>
@@ -216,11 +217,44 @@ const DashboardPage: React.FC = () => {
                         </>
                     ) : (
                         <button onClick={() => fetchMysteryHistory(membership)} className="text-sm text-blue-600 hover:text-blue-800 hover:underline">
-                            Pokaż historię tej Róży
+                            Pokaż historię moich tajemnic
                         </button>
                     )}
                 </div>
-            </div>
+
+                {/* --- Sekcja Udostępnionych Intencji dla tej Róży (PRZENIESIONA TUTAJ) --- */}
+                <div className="mt-8 pt-6 border-t border-gray-200"> {/* Dodano mt-8 i pt-6 dla większego odstępu */}
+                    <h4 className="text-md font-semibold text-gray-700 mb-3">Intencje Udostępnione przez Członków tej Róży:</h4>
+                    {membership.sharedIntentionsPreview && membership.sharedIntentionsPreview.length > 0 ? (
+                        <div className="space-y-3 max-h-56 overflow-y-auto pr-2 text-sm"> {/* Zwiększono max-h i space-y */}
+                            {membership.sharedIntentionsPreview.map(intention => (
+                                <div key={intention.id} className="p-3 bg-green-50 border border-green-200 rounded-md shadow-sm"> {/* Dodano shadow-sm i zwiększono padding */}
+                                    <p className="text-gray-800 whitespace-pre-wrap text-sm">
+                                        {intention.text}
+                                    </p>
+                                    {intention.author && (
+                                    <p className="text-xs text-green-700 mt-1.5"> {/* Zwiększono mt */}
+                                        Przez: {intention.author?.name || intention.author?.email || 'Anonim'}
+                                        <span className="text-gray-500 ml-2">
+                                            ({new Date(intention.createdAt).toLocaleDateString('pl-PL', { day: '2-digit', month: 'short', year: 'numeric'})})
+                                        </span>
+                                    </p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-gray-500 italic">Brak udostępnionych intencji w tej Róży.</p>
+                    )}
+                    <RouterLink 
+                        to="/my-intentions"
+                        className="mt-4 inline-block text-sm text-indigo-600 hover:text-indigo-800 hover:underline" /* Zwiększono mt i text-sm */
+                    >
+                        Dodaj lub zarządzaj swoimi intencjami
+                    </RouterLink>
+                </div>
+
+            </div> // Koniec karty membership
             ))
         ) : (
             !isLoadingMemberships && !membershipsError && (
@@ -230,7 +264,6 @@ const DashboardPage: React.FC = () => {
                 </div>
             )
         )}
-        {/* Sekcja "Moje Intencje Osobiste" została przeniesiona do MyIntentionsPage.tsx */}
       </div>
     </div>
   );
