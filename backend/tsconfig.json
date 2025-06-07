@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -11,6 +11,6 @@
     "resolveJsonModule": true,
     "types": ["node"] // Dodaj lub upewnij się, że "node" jest tutaj
   },
-  "include": ["src/**/*", "prisma/seed.ts"], // Dodaj seed.ts do include
+  "include": ["src/**/*", "prisma/seed.ts"],  // Dodaj seed.ts do include
   "exclude": ["node_modules", "**/*.spec.ts"]
 }
