@@ -22,8 +22,10 @@ const app: Express = express();
 const port = process.env.PORT || 3001;
 
 // --- Konfiguracja CORS ---
-const allowedOrigins = ['http://localhost:5173']; 
-
+const allowedOrigins = [
+  'http://localhost:5173', // Dla dewelopmentu lokalnego frontendu
+  'https://roza-modlitewna-ui.vercel.app/' // <<<< DODAJ URL TWOJEGO WDROŻONEGO FRONTENDU NA VERCEL
+];
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
