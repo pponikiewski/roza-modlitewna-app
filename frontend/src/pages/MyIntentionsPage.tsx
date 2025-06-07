@@ -3,56 +3,54 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
 import type { UserIntention, UserMembership } from '../types/rosary.types';
+import { toast } from 'sonner'; // <<<< NOWY IMPORT
 
 const MyIntentionsPage: React.FC = () => {
   const { user } = useAuth();
   
   const [myIntentions, setMyIntentions] = useState<UserIntention[]>([]);
   const [isLoadingIntentions, setIsLoadingIntentions] = useState(true);
-  const [intentionsError, setIntentionsError] = useState<string | null>(null);
-  
+  // const [intentionsError, setIntentionsError] = useState<string | null>(null); // Zastąpione toastem
+
   const [newIntentionText, setNewIntentionText] = useState('');
-  const [shareWithRoseIdOnCreate, setShareWithRoseIdOnCreate] = useState<string>(''); // Zmieniono nazwę dla jasności
+  const [shareWithRoseIdOnCreate, setShareWithRoseIdOnCreate] = useState<string>('');
   const [isAddingIntention, setIsAddingIntention] = useState(false);
-  const [addIntentionError, setAddIntentionError] = useState<string | null>(null);
-  const [addIntentionSuccess, setAddIntentionSuccess] = useState<string | null>(null);
+  // const [addIntentionError, setAddIntentionError] = useState<string | null>(null); // Zastąpione toastem
+  // const [addIntentionSuccess, setAddIntentionSuccess] = useState<string | null>(null); // Zastąpione toastem
 
   const [editingIntention, setEditingIntention] = useState<UserIntention | null>(null);
   const [editIntentionText, setEditIntentionText] = useState('');
   const [editShareWithRoseId, setEditShareWithRoseId] = useState<string>('');
   const [isUpdatingIntention, setIsUpdatingIntention] = useState(false);
-  const [updateIntentionError, setUpdateIntentionError] = useState<string | null>(null);
-  const [updateIntentionSuccess, setUpdateIntentionSuccess] = useState<string | null>(null);
+  // const [updateIntentionError, setUpdateIntentionError] = useState<string | null>(null); // Zastąpione toastem
+  // const [updateIntentionSuccess, setUpdateIntentionSuccess] = useState<string | null>(null); // Zastąpione toastem
 
   const [isDeletingIntention, setIsDeletingIntention] = useState<string | null>(null);
-  const [deleteIntentionError, setDeleteIntentionError] = useState<string | null>(null);
+  // const [deleteIntentionError, setDeleteIntentionError] = useState<string | null>(null); // Zastąpione toastem
   
   const [myMemberships, setMyMemberships] = useState<UserMembership[]>([]);
-  // isLoadingMemberships nie jest tu krytyczne, jeśli select jest opcjonalny
-  // const [isLoadingMemberships, setIsLoadingMemberships] = useState(false); 
 
   const fetchMyMemberships = useCallback(async () => {
     if (!user) return;
-    // setIsLoadingMemberships(true); // Można dodać, jeśli chcemy pokazać ładowanie dla selecta
     try {
       const response = await apiClient.get<UserMembership[]>('/me/memberships');
       setMyMemberships(response.data);
     } catch (err: any) {
       console.error("Błąd pobierania członkostw dla formularza intencji:", err);
-    } finally {
-      // setIsLoadingMemberships(false);
+      toast.error("Nie udało się pobrać listy Róż do udostępnienia intencji.");
     }
   }, [user]);
 
   const fetchMyIntentions = useCallback(async () => {
     if (!user) return;
     setIsLoadingIntentions(true);
-    setIntentionsError(null);
+    // setIntentionsError(null); // Już niepotrzebne
     try {
         const response = await apiClient.get<UserIntention[]>('/me/intentions');
         setMyIntentions(response.data);
     } catch (err: any) {
-        setIntentionsError(err.response?.data?.error || 'Nie udało się pobrać Twoich intencji.');
+        // setIntentionsError(err.response?.data?.error || 'Nie udało się pobrać Twoich intencji.');
+        toast.error(err.response?.data?.error || 'Nie udało się pobrać Twoich intencji.');
         setMyIntentions([]);
     } finally {
         setIsLoadingIntentions(false);
@@ -69,17 +67,17 @@ const MyIntentionsPage: React.FC = () => {
   const handleAddIntentionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newIntentionText.trim()) {
-        setAddIntentionError("Treść intencji nie może być pusta.");
+        toast.warning("Treść intencji nie może być pusta.");
         return;
     }
     if (shareWithRoseIdOnCreate && myMemberships.find(m => m.rose.id === shareWithRoseIdOnCreate) === undefined && user?.role !== 'ADMIN') {
-        setAddIntentionError("Wybrano nieprawidłową Różę do udostępnienia lub nie należysz do tej Róży.");
+        toast.error("Wybrano nieprawidłową Różę do udostępnienia lub nie należysz do tej Róży.");
         return;
     }
 
     setIsAddingIntention(true);
-    setAddIntentionError(null);
-    setAddIntentionSuccess(null);
+    // setAddIntentionError(null); // Już niepotrzebne
+    // setAddIntentionSuccess(null); // Już niepotrzebne
     try {
         const payload: { text: string; isSharedWithRose: boolean; sharedWithRoseId?: string } = {
             text: newIntentionText,
@@ -90,13 +88,13 @@ const MyIntentionsPage: React.FC = () => {
         }
 
         await apiClient.post<UserIntention>('/me/intentions', payload);
-        setAddIntentionSuccess("Intencja została pomyślnie dodana.");
+        toast.success("Intencja została pomyślnie dodana.");
         setNewIntentionText('');
         setShareWithRoseIdOnCreate('');
         fetchMyIntentions();
-        setTimeout(() => setAddIntentionSuccess(null), 3000);
+        // setTimeout(() => setAddIntentionSuccess(null), 3000); // Już niepotrzebne
     } catch (err: any) {
-        setAddIntentionError(err.response?.data?.error || "Nie udało się dodać intencji.");
+        toast.error(err.response?.data?.error || "Nie udało się dodać intencji.");
     } finally {
         setIsAddingIntention(false);
     }
@@ -106,8 +104,8 @@ const MyIntentionsPage: React.FC = () => {
     setEditingIntention(intention);
     setEditIntentionText(intention.text);
     setEditShareWithRoseId(intention.sharedWithRoseId || '');
-    setUpdateIntentionError(null);
-    setUpdateIntentionSuccess(null);
+    // setUpdateIntentionError(null); // Już niepotrzebne
+    // setUpdateIntentionSuccess(null); // Już niepotrzebne
   };
 
   const closeEditIntentionModal = () => {
@@ -117,53 +115,59 @@ const MyIntentionsPage: React.FC = () => {
   const handleUpdateIntentionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingIntention || !editIntentionText.trim()) {
-      setUpdateIntentionError("Treść intencji nie może być pusta.");
+      toast.warning("Treść intencji nie może być pusta.");
       return;
     }
     if (editShareWithRoseId && myMemberships.find(m => m.rose.id === editShareWithRoseId) === undefined && user?.role !== 'ADMIN') {
-        setUpdateIntentionError("Wybrano nieprawidłową Różę do udostępnienia lub nie należysz do tej Róży.");
+        toast.error("Wybrano nieprawidłową Różę do udostępnienia lub nie należysz do tej Róży.");
         return;
     }
 
     setIsUpdatingIntention(true);
-    setUpdateIntentionError(null);
-    setUpdateIntentionSuccess(null);
+    // setUpdateIntentionError(null); // Już niepotrzebne
+    // setUpdateIntentionSuccess(null); // Już niepotrzebne
     try {
       const payload: { text: string; isSharedWithRose: boolean; sharedWithRoseId?: string | null } = {
         text: editIntentionText,
-        isSharedWithRose: !!editShareWithRoseId, // true jeśli wybrano Różę, false jeśli string jest pusty
-        sharedWithRoseId: editShareWithRoseId || null, // Wyślij null, jeśli nie udostępniono
+        isSharedWithRose: !!editShareWithRoseId,
+        sharedWithRoseId: editShareWithRoseId || null,
       };
 
       await apiClient.patch(`/me/intentions/${editingIntention.id}`, payload);
-      setUpdateIntentionSuccess("Intencja została pomyślnie zaktualizowana.");
-      fetchMyIntentions(); // Odśwież listę
-      setTimeout(closeEditIntentionModal, 1500);
+      toast.success("Intencja została pomyślnie zaktualizowana.");
+      fetchMyIntentions();
+      // Opóźnienie zamknięcia modala, aby użytkownik zobaczył toast sukcesu wewnątrz modala
+      // lub można zamknąć modal od razu i toast pojawi się na głównej stronie.
+      // Wybieram drugą opcję, bo sonner domyślnie wyświetla toasty globalnie.
+      closeEditIntentionModal(); 
     } catch (err: any) {
-      setUpdateIntentionError(err.response?.data?.error || "Nie udało się zaktualizować intencji.");
+      toast.error(err.response?.data?.error || "Nie udało się zaktualizować intencji.");
     } finally {
       setIsUpdatingIntention(false);
     }
   };
 
   const handleDeleteIntention = async (intentionId: string) => {
+     // `window.confirm` można zostawić lub zastąpić modalem potwierdzającym.
+     // Dla tego przykładu zostawiam `window.confirm`.
      if (!window.confirm("Czy na pewno chcesz usunąć tę intencję? Tej akcji nie można cofnąć.")) {
          return;
      }
      setIsDeletingIntention(intentionId);
-     setDeleteIntentionError(null);
+     // setDeleteIntentionError(null); // Już niepotrzebne
      try {
          await apiClient.delete(`/me/intentions/${intentionId}`);
-         setMyIntentions(prev => prev.filter(intention => intention.id !== intentionId)); // Optymistyczne usunięcie
+         toast.success("Intencja została usunięta.");
+         setMyIntentions(prev => prev.filter(intention => intention.id !== intentionId));
      } catch (err:any) {
          console.error("Błąd usuwania intencji:", err);
-         setDeleteIntentionError(err.response?.data?.error || "Nie udało się usunąć intencji.");
+         toast.error(err.response?.data?.error || "Nie udało się usunąć intencji.");
      } finally {
          setIsDeletingIntention(null);
      }
   };
 
- if (isLoadingIntentions) { // Główny loader dla strony
+ if (isLoadingIntentions) {
      return (
          <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]">
              <div className="text-xl text-gray-700">Ładowanie Twoich intencji...</div>
@@ -172,16 +176,13 @@ const MyIntentionsPage: React.FC = () => {
  }
 
  return (
-     <div className="p-4 md:p-8 bg-slate-100"> {/* Główny kontener strony */}
+     <div className="p-4 md:p-8 bg-slate-100">
        <div className="max-w-3xl mx-auto space-y-8">
          <h1 className="text-3xl font-bold text-gray-800 border-b pb-4">Moje Intencje Modlitewne</h1>
 
-         {/* Formularz dodawania nowej intencji */}
          <section className="bg-white p-6 rounded-lg shadow-xl">
            <h2 className="text-xl font-semibold text-gray-700 mb-4">Dodaj Nową Intencję</h2>
-           {addIntentionError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{addIntentionError}</p>}
-           {addIntentionSuccess && <p className="mb-3 p-2 text-sm text-green-600 bg-green-100 rounded">{addIntentionSuccess}</p>}
-           
+           {/* Usunięto wyświetlanie addIntentionError i addIntentionSuccess */}
            <form onSubmit={handleAddIntentionSubmit} className="space-y-4">
              <div>
                  <label htmlFor="newIntentionText" className="block text-sm font-medium text-gray-700">Treść intencji <span className="text-red-500">*</span></label>
@@ -225,13 +226,11 @@ const MyIntentionsPage: React.FC = () => {
            </form>
          </section>
 
-         {/* Lista intencji użytkownika */}
          <section className="bg-white p-6 rounded-lg shadow-xl">
            <h2 className="text-xl font-semibold text-gray-700 mb-4">Zapisane Intencje</h2>
-           {intentionsError && <p className="text-red-500 bg-red-100 p-3 rounded-md">{intentionsError}</p>}
-           {deleteIntentionError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{deleteIntentionError}</p>}
+           {/* Usunięto wyświetlanie intentionsError i deleteIntentionError, toasty są globalne */}
            
-           {myIntentions.length === 0 && !isLoadingIntentions && !intentionsError ? (
+           {myIntentions.length === 0 && !isLoadingIntentions /* && !intentionsError */ ? ( // Usunięto !intentionsError, bo nie ma już tego stanu
              <p className="text-gray-600 text-center py-4">Nie masz jeszcze żadnych zapisanych intencji.</p>
            ) : (
              <div className="space-y-4">
@@ -272,7 +271,6 @@ const MyIntentionsPage: React.FC = () => {
            )}
          </section>
 
-         {/* Modal do Edycji Intencji */}
          {editingIntention && (
              <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-4">
                  <div className="relative bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-lg">
@@ -280,8 +278,7 @@ const MyIntentionsPage: React.FC = () => {
                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                      </button>
                      <h3 className="text-xl sm:text-2xl font-semibold mb-5 text-gray-800 border-b pb-3">Edytuj Intencję</h3>
-                     {updateIntentionError && <p className="mb-4 p-3 text-sm text-red-700 bg-red-100 rounded-md">{updateIntentionError}</p>}
-                     {updateIntentionSuccess && <p className="mb-4 p-3 text-sm text-green-700 bg-green-100 rounded-md">{updateIntentionSuccess}</p>}
+                     {/* Usunięto updateIntentionError i updateIntentionSuccess z modala, toasty są globalne */}
                      
                      <form onSubmit={handleUpdateIntentionSubmit} className="space-y-4">
                          <div>
@@ -295,7 +292,7 @@ const MyIntentionsPage: React.FC = () => {
                                  required
                              />
                          </div>
-                         {myMemberships.length > 0 && ( // Pokaż opcję udostępnienia tylko jeśli użytkownik należy do jakiejś Róży
+                         {myMemberships.length > 0 && (
                              <div>
                                  <label htmlFor="editShareWithRoseId" className="block text-sm font-medium text-gray-700">
                                      Udostępnij Róży:

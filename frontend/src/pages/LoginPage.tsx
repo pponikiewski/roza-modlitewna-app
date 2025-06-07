@@ -1,25 +1,30 @@
+// frontend/src/pages/LoginPage.tsx
 import React, { useState } from 'react';
 import apiClient from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Link as RouterLink, useNavigate } from 'react-router-dom'; // Importuj useNavigate i RouterLink
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner'; // <<<< ZMIANA: Dodano import
+
 const LoginPage: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState<string | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false); // Stan do obsługi ładowania
+    // const [error, setError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { login } = useAuth();
-    const navigate = useNavigate(); // Hook do programatycznej nawigacji
+    const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      setError(null);
+      // setError(null); // <<<< ZMIANA: Usunięto
       setIsSubmitting(true);
       try {
         const response = await apiClient.post('/auth/login', { email, password });
         login(response.data.token, response.data.user);
-        navigate('/dashboard'); // Przekieruj na dashboard po pomyślnym logowaniu
+        toast.success("Zalogowano pomyślnie!"); // <<<< ZMIANA: Dodano toast (opcjonalny)
+        navigate('/dashboard');
       } catch (err: any) {
-        setError(err.response?.data?.error || 'Nie udało się zalogować. Sprawdź dane i spróbuj ponownie.');
+        // setError(err.response?.data?.error || 'Nie udało się zalogować. Sprawdź dane i spróbuj ponownie.'); // <<<< ZMIANA: Usunięto
+        toast.error(err.response?.data?.error || 'Nie udało się zalogować. Sprawdź dane i spróbuj ponownie.'); // <<<< ZMIANA: Dodano toast
       } finally {
         setIsSubmitting(false);
       }
@@ -29,7 +34,7 @@ const LoginPage: React.FC = () => {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-400 to-indigo-600 p-4">
         <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-xl shadow-2xl">
           <h2 className="text-3xl font-bold text-center text-gray-800">Zaloguj się</h2>
-          {error && <p className="text-red-600 text-sm text-center bg-red-100 p-2 rounded">{error}</p>}
+          {/* {error && <p className="text-red-600 text-sm text-center bg-red-100 p-2 rounded">{error}</p>} */} {/* <<<< ZMIANA: Usunięto */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">Adres email</label>

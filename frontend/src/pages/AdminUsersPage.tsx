@@ -3,29 +3,30 @@ import React, { useEffect, useState, useCallback } from 'react';
 import apiClient from '../services/api';
 import type { UserAdminView } from '../types/admin.types';
 import { UserRoles, type UserRole } from '../types/user.types';
+import { toast } from 'sonner'; // <<<< ZMIANA: Dodano import
 
 const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<UserAdminView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // const [error, setError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
   const [editingUser, setEditingUser] = useState<UserAdminView | null>(null);
   const [newRole, setNewRole] = useState<UserRole>(UserRoles.MEMBER);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
-  const [updateRoleError, setUpdateRoleError] = useState<string | null>(null);
-  const [updateRoleSuccess, setUpdateRoleSuccess] = useState<string | null>(null);
+  // const [updateRoleError, setUpdateRoleError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
+  // const [updateRoleSuccess, setUpdateRoleSuccess] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
-  // Stany dla modala szczegółów użytkownika
   const [viewingUser, setViewingUser] = useState<UserAdminView | null>(null);
 
   const fetchUsers = useCallback(async () => {
      setIsLoading(true);
-     setError(null);
+     // setError(null); // <<<< ZMIANA: Usunięto
      try {
-         const response = await apiClient.get<UserAdminView[]>('/users'); // Assuming this is the admin endpoint for all users
+         const response = await apiClient.get<UserAdminView[]>('/users');
          setUsers(response.data);
      } catch (err:any) {
-         setError(err.response?.data?.error || "Nie udało się pobrać listy użytkowników.");
+         // setError(err.response?.data?.error || "Nie udało się pobrać listy użytkowników."); // <<<< ZMIANA: Usunięto
+         toast.error(err.response?.data?.error || "Nie udało się pobrać listy użytkowników."); // <<<< ZMIANA: Dodano toast
      } finally {
          setIsLoading(false);
      }
@@ -38,9 +39,9 @@ const AdminUsersPage: React.FC = () => {
   const openEditRoleModal = (userToEdit: UserAdminView) => {
      setEditingUser(userToEdit);
      setNewRole(userToEdit.role as UserRole);
-     setUpdateRoleError(null);
-     setUpdateRoleSuccess(null);
-     setViewingUser(null); // Close details modal if open
+     // setUpdateRoleError(null); // <<<< ZMIANA: Usunięto
+     // setUpdateRoleSuccess(null); // <<<< ZMIANA: Usunięto
+     setViewingUser(null);
   };
 
   const closeEditRoleModal = () => {
@@ -52,19 +53,21 @@ const AdminUsersPage: React.FC = () => {
      if (!editingUser) return;
 
      setIsUpdatingRole(true);
-     setUpdateRoleError(null);
-     setUpdateRoleSuccess(null);
+     // setUpdateRoleError(null); // <<<< ZMIANA: Usunięto
+     // setUpdateRoleSuccess(null); // <<<< ZMIANA: Usunięto
      try {
          await apiClient.patch(`/admin/users/${editingUser.id}/role`, { newRole });
-         setUpdateRoleSuccess(`Rola dla ${editingUser.name || editingUser.email} została pomyślnie zmieniona na ${newRole}.`);
+         // setUpdateRoleSuccess(`Rola dla ${editingUser.name || editingUser.email} została pomyślnie zmieniona na ${newRole}.`); // <<<< ZMIANA: Usunięto
+         toast.success(`Rola dla ${editingUser.name || editingUser.email} została pomyślnie zmieniona na ${newRole}.`); // <<<< ZMIANA: Dodano toast
          fetchUsers();
-         setTimeout(() => {
+         // setTimeout(() => { // Można usunąć setTimeout, toast zniknie sam
              closeEditRoleModal();
-             setUpdateRoleSuccess(null);
-         }, 2000);
+             // setUpdateRoleSuccess(null); // <<<< ZMIANA: Usunięto
+         // }, 1500);
      } catch (err: any) {
-         setUpdateRoleError(err.response?.data?.error || "Nie udało się zaktualizować roli.");
-         setTimeout(() => setUpdateRoleError(null), 5000);
+         // setUpdateRoleError(err.response?.data?.error || "Nie udało się zaktualizować roli."); // <<<< ZMIANA: Usunięto
+         toast.error(err.response?.data?.error || "Nie udało się zaktualizować roli."); // <<<< ZMIANA: Dodano toast
+         // setTimeout(() => setUpdateRoleError(null), 5000); // <<<< ZMIANA: Usunięto
      } finally {
          setIsUpdatingRole(false);
      }
@@ -72,7 +75,7 @@ const AdminUsersPage: React.FC = () => {
 
   const openUserDetailsModal = (userToView: UserAdminView) => {
     setViewingUser(userToView);
-    setEditingUser(null); // Close role edit modal if open
+    setEditingUser(null);
   };
 
   const closeUserDetailsModal = () => {
@@ -80,12 +83,12 @@ const AdminUsersPage: React.FC = () => {
   };
 
   if (isLoading) return <p className="text-gray-600 p-4">Ładowanie użytkowników...</p>;
-  if (error) return <p className="text-red-500 bg-red-100 p-3 rounded-md">{error}</p>;
+  // if (error) return <p className="text-red-500 bg-red-100 p-3 rounded-md">{error}</p>; // <<<< ZMIANA: Usunięto
 
   return (
     <div>
       <h2 className="text-2xl font-semibold text-gray-700 mb-6">Lista Użytkowników Systemu</h2>
-      {users.length === 0 ? (
+      {users.length === 0 && !isLoading ? ( // <<<< ZMIANA: Dodano !isLoading
          <p>Brak zarejestrowanych użytkowników.</p>
       ) : (
          <div className="overflow-x-auto shadow-md rounded-lg">
@@ -141,7 +144,6 @@ const AdminUsersPage: React.FC = () => {
          </div>
       )}
 
-     {/* Modal do zmiany roli */}
      {editingUser && (
          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-4">
              <div className="relative bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md">
@@ -149,8 +151,8 @@ const AdminUsersPage: React.FC = () => {
                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                  </button>
                  <h3 className="text-xl font-semibold mb-4 text-gray-800">Zmień rolę dla: <span className="font-normal">{editingUser.name || editingUser.email}</span></h3>
-                 {updateRoleError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{updateRoleError}</p>}
-                 {updateRoleSuccess && <p className="mb-3 p-2 text-sm text-green-600 bg-green-100 rounded">{updateRoleSuccess}</p>}
+                 {/* {updateRoleError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{updateRoleError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
+                 {/* {updateRoleSuccess && <p className="mb-3 p-2 text-sm text-green-600 bg-green-100 rounded">{updateRoleSuccess}</p>} */} {/* <<<< ZMIANA: Usunięto */}
                  
                  <form onSubmit={handleRoleChangeSubmit}>
                      <div className="mb-5">
@@ -163,7 +165,6 @@ const AdminUsersPage: React.FC = () => {
                          >
                              <option value={UserRoles.MEMBER}>MEMBER</option>
                              <option value={UserRoles.ZELATOR}>ZELATOR</option>
-                             {/* ADMIN role cannot be assigned through this UI */}
                          </select>
                      </div>
                      <div className="flex items-center justify-end space-x-3">
@@ -188,7 +189,6 @@ const AdminUsersPage: React.FC = () => {
          </div>
      )}
 
-     {/* Modal Szczegółów Użytkownika */}
      {viewingUser && (
          <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-4">
              <div className="relative bg-white p-6 sm:p-8 rounded-lg shadow-xl w-full max-w-md">
@@ -210,20 +210,6 @@ const AdminUsersPage: React.FC = () => {
                          </span>
                      </p>
                      <p><strong>Data utworzenia konta:</strong> <span className="text-gray-700">{new Date(viewingUser.createdAt).toLocaleString('pl-PL')}</span></p>
-                     {/* 
-                        Poniżej przykładowe pola, jeśli `UserAdminView` zostałoby rozszerzone o te dane:
-                        {viewingUser.memberships && viewingUser.memberships.length > 0 && (
-                            <div>
-                                <strong>Członkostwa w Różach:</strong>
-                                <ul className="list-disc list-inside ml-4 text-gray-700">
-                                    {viewingUser.memberships.map(mem => <li key={mem.rose.id}>{mem.rose.name}</li>)}
-                                </ul>
-                            </div>
-                        )}
-                        {viewingUser._count?.intentions !== undefined && (
-                            <p><strong>Liczba intencji:</strong> <span className="text-gray-700">{viewingUser._count.intentions}</span></p>
-                        )}
-                     */}
                  </div>
                  <div className="mt-6 pt-4 border-t flex justify-end">
                      <button

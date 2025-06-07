@@ -1,61 +1,55 @@
 // frontend/src/pages/ManagedRoseDetailsPage.tsx
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useParams, Link as RouterLink } from 'react-router-dom'; // Usunięto useNavigate, nie jest używany
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
-import type { RoseMembershipWithUserAndMystery, BasicRoseInfo } from '../types/zelator.types';
+import type { RoseMembershipWithUserAndMystery } from '../types/zelator.types';
 import type { RoseListItemAdmin } from '../types/admin.types';
 import { findMysteryById } from '../utils/constants';
 import type { RoseMainIntentionData, UserIntention } from '../types/rosary.types';
+import { toast } from 'sonner'; // <<<< ZMIANA: Dodano import
 
 const ManagedRoseDetailsPage: React.FC = () => {
   const { roseId } = useParams<{ roseId: string }>();
   const { user } = useAuth();
-  const navigate = useNavigate();
   
   const [members, setMembers] = useState<RoseMembershipWithUserAndMystery[]>([]);
   const [currentRose, setCurrentRose] = useState<RoseListItemAdmin | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [pageError, setPageError] = useState<string | null>(null);
+  // const [pageError, setPageError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
   const [userIdToAdd, setUserIdToAdd] = useState('');
   const [isAddingMember, setIsAddingMember] = useState(false);
-  const [addMemberError, setAddMemberError] = useState<string | null>(null);
-  const [addMemberSuccess, setAddMemberSuccess] = useState<string | null>(null);
+  // const [addMemberError, setAddMemberError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
+  // const [addMemberSuccess, setAddMemberSuccess] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
   const [isRemovingMember, setIsRemovingMember] = useState<string | null>(null);
-  const [removeMemberError, setRemoveMemberError] = useState<string | null>(null);
+  // const [removeMemberError, setRemoveMemberError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
   const [currentMainIntention, setCurrentMainIntention] = useState<RoseMainIntentionData | null>(null);
   const [intentionText, setIntentionText] = useState('');
-  // Domyślnie miesiąc i rok dla formularza intencji ustawiamy na bieżące
   const [intentionMonth, setIntentionMonth] = useState<number>(new Date().getMonth() + 1);
   const [intentionYear, setIntentionYear] = useState<number>(new Date().getFullYear());
   const [isSubmittingIntention, setIsSubmittingIntention] = useState(false);
-  const [intentionError, setIntentionError] = useState<string | null>(null);
-  const [intentionSuccess, setIntentionSuccess] = useState<string | null>(null);
+  // const [intentionError, setIntentionError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
+  // const [intentionSuccess, setIntentionSuccess] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
   const [sharedIntentions, setSharedIntentions] = useState<UserIntention[]>([]);
-  // isLoadingSharedIntentions nie jest już potrzebne, bo jest częścią głównego isLoading z fetchPageData
-  const [sharedIntentionsError, setSharedIntentionsError] = useState<string | null>(null);
+  // const [sharedIntentionsError, setSharedIntentionsError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
 
   const fetchPageData = useCallback(async () => {
     if (!roseId || !user) {
-        setIsLoading(true); // Nadal ustawiamy isLoading, żeby pokazać loader
+        setIsLoading(true);
         return;
     }
 
     setIsLoading(true);
-    setPageError(null);
+    // setPageError(null); // <<<< ZMIANA: Usunięto
     setMembers([]);
     setCurrentRose(null);
     setCurrentMainIntention(null);
-    setSharedIntentions([]); // Resetuj udostępnione intencje
-    setAddMemberError(null); setAddMemberSuccess(null); 
-    setRemoveMemberError(null);
-    setIntentionError(null); setIntentionSuccess(null);
-    setSharedIntentionsError(null);
+    setSharedIntentions([]);
 
     try {
       const [
@@ -82,17 +76,16 @@ const ManagedRoseDetailsPage: React.FC = () => {
 
       if (currentIntentionResponse && currentIntentionResponse.data) {
         setCurrentMainIntention(currentIntentionResponse.data);
-        const today = new Date(); // Definiujemy 'today' przed użyciem
-        // Wypełnij formularz tylko jeśli pobrana intencja jest dla aktualnie wybranego miesiąca/roku w formularzu LUB dla bieżącego
+        const today = new Date();
         if (currentIntentionResponse.data.month === intentionMonth && currentIntentionResponse.data.year === intentionYear) {
             setIntentionText(currentIntentionResponse.data.text);
         } else if (currentIntentionResponse.data.month === (today.getMonth() +1) && currentIntentionResponse.data.year === today.getFullYear()){
-             setIntentionText(currentIntentionResponse.data.text); // Jeśli to intencja na dziś, wypełnij
-             setIntentionMonth(today.getMonth() + 1); // Ustaw formularz na dziś
+             setIntentionText(currentIntentionResponse.data.text);
+             setIntentionMonth(today.getMonth() + 1);
              setIntentionYear(today.getFullYear());
         }
          else {
-            setIntentionText(''); // Jeśli pobrana intencja jest inna niż w formularzu, nie wypełniaj
+            setIntentionText('');
         }
       } else {
         setCurrentMainIntention(null);
@@ -110,41 +103,41 @@ const ManagedRoseDetailsPage: React.FC = () => {
 
     } catch (err: any) {
       console.error("Błąd pobierania danych dla ManagedRoseDetailsPage:", err);
+      let errorMessage = 'Wystąpił błąd podczas ładowania danych strony.';
       if (err.response?.status === 403) {
-         setPageError('Nie masz uprawnień do wyświetlania szczegółów tej Róży.');
+         errorMessage = 'Nie masz uprawnień do wyświetlania szczegółów tej Róży.';
       } else if (err.response?.status === 404) {
-         setPageError(`Róża o ID "${roseId}" nie została znaleziona.`);
-      } else {
-         setPageError(err.response?.data?.error || 'Wystąpił błąd podczas ładowania danych strony.');
+         errorMessage = `Róża o ID "${roseId}" nie została znaleziona.`;
+      } else if (err.response?.data?.error) {
+         errorMessage = err.response.data.error;
       }
+      toast.error(errorMessage); // <<<< ZMIANA: Dodano toast
+      // setPageError(errorMessage); // <<<< ZMIANA: Usunięto
     } finally {
       setIsLoading(false);
     }
-  }, [roseId, user, intentionMonth, intentionYear]); // intentionMonth/Year są tu, aby potencjalnie odświeżać formularz, ale główna intencja /current jest zawsze dla bieżącego
+  }, [roseId, user, intentionMonth, intentionYear]);
 
   useEffect(() => {
     if (roseId && user) {
       fetchPageData();
     }
-  }, [roseId, user, fetchPageData]); // fetchPageData jest w useCallback, więc jego referencja się nie zmienia bez potrzeby
+  }, [roseId, user, fetchPageData]);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentRose || !userIdToAdd.trim()) {
-        setAddMemberError("ID użytkownika do dodania nie może być puste lub brak danych Róży.");
+        toast.warning("ID użytkownika do dodania nie może być puste lub brak danych Róży."); // <<<< ZMIANA: Dodano toast
         return;
     }
-    setIsAddingMember(true); setAddMemberError(null); setAddMemberSuccess(null);
+    setIsAddingMember(true);
     try {
         await apiClient.post(`/zelator/roses/${currentRose.id}/members`, { userIdToAdd });
-        setAddMemberSuccess(`Pomyślnie dodano użytkownika (ID: ${userIdToAdd}). Odświeżanie listy...`);
+        toast.success(`Pomyślnie dodano użytkownika (ID: ${userIdToAdd}).`); // <<<< ZMIANA: Dodano toast
         setUserIdToAdd('');
-        setTimeout(() => {
-            fetchPageData(); 
-            setAddMemberSuccess(null);
-        }, 1500);
+        fetchPageData(); 
     } catch (err: any) {
-        setAddMemberError(err.response?.data?.error || "Wystąpił błąd podczas dodawania członka.");
+        toast.error(err.response?.data?.error || "Wystąpił błąd podczas dodawania członka."); // <<<< ZMIANA: Dodano toast
     } finally {
         setIsAddingMember(false);
     }
@@ -155,12 +148,13 @@ const ManagedRoseDetailsPage: React.FC = () => {
     if (!window.confirm("Czy na pewno chcesz usunąć tego członka z Róży? Tej akcji nie można cofnąć.")) {
         return;
     }
-    setIsRemovingMember(membershipIdToRemove); setRemoveMemberError(null);
+    setIsRemovingMember(membershipIdToRemove);
     try {
         await apiClient.delete(`/zelator/roses/${currentRose.id}/members/${membershipIdToRemove}`);
-        fetchPageData(); // Odśwież wszystkie dane strony
+        toast.success("Członek został usunięty z Róży."); // <<<< ZMIANA: Dodano toast
+        fetchPageData();
     } catch (err: any) {
-        setRemoveMemberError(err.response?.data?.error || "Nie udało się usunąć członka.");
+        toast.error(err.response?.data?.error || "Nie udało się usunąć członka."); // <<<< ZMIANA: Dodano toast
     } finally {
         setIsRemovingMember(null);
     }
@@ -169,25 +163,21 @@ const ManagedRoseDetailsPage: React.FC = () => {
   const handleMainIntentionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentRose || !intentionText.trim()) {
-        setIntentionError("Treść intencji jest wymagana.");
+        toast.warning("Treść intencji jest wymagana."); // <<<< ZMIANA: Dodano toast
         return;
     }
     setIsSubmittingIntention(true);
-    setIntentionError(null);
-    setIntentionSuccess(null);
     try {
         const payload = {
             text: intentionText,
-            // month i year nie są już wysyłane z frontendu, backend bierze bieżące
             isActive: true 
         };
         const response = await apiClient.post<RoseMainIntentionData>(`/zelator/roses/${currentRose.id}/main-intention`, payload);
         setCurrentMainIntention(response.data);
-        setIntentionText(response.data.text);
-        setIntentionSuccess("Główna intencja na bieżący miesiąc została pomyślnie zapisana.");
-        setTimeout(() => setIntentionSuccess(null), 3000);
+        // setIntentionText(response.data.text); // Można zostawić lub usunąć, zależnie od preferencji UX
+        toast.success("Główna intencja na bieżący miesiąc została pomyślnie zapisana/zaktualizowana."); // <<<< ZMIANA: Dodano toast
     } catch (err: any) {
-        setIntentionError(err.response?.data?.error || "Nie udało się zapisać głównej intencji.");
+        toast.error(err.response?.data?.error || "Nie udało się zapisać głównej intencji."); // <<<< ZMIANA: Dodano toast
     } finally {
         setIsSubmittingIntention(false);
     }
@@ -197,21 +187,23 @@ const ManagedRoseDetailsPage: React.FC = () => {
     return <div className="p-8 text-center text-xl">Ładowanie danych Róży...</div>;
   }
 
-  if (pageError) {
-    return (
-        <div className="p-8 text-center min-h-screen flex flex-col justify-center items-center">
-            <p className="text-red-600 bg-red-100 p-4 rounded-md mb-4 text-lg">{pageError}</p>
-            <RouterLink to="/zelator-dashboard" className="px-5 py-2.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
-                ← Wróć do Panelu Zelatora
-            </RouterLink>
-        </div>
-    );
-  }
+  // if (pageError) { // <<<< ZMIANA: Usunięto ten blok, toasty są globalne
+  //   return (
+  //       <div className="p-8 text-center min-h-screen flex flex-col justify-center items-center">
+  //           <p className="text-red-600 bg-red-100 p-4 rounded-md mb-4 text-lg">{pageError}</p>
+  //           <RouterLink to="/zelator-dashboard" className="px-5 py-2.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
+  //               ← Wróć do Panelu Zelatora
+  //           </RouterLink>
+  //       </div>
+  //   );
+  // }
 
-  if (!currentRose && !isLoading) {
+  if (!currentRose && !isLoading) { // Sprawdzamy !isLoading, aby nie pokazywać, gdy już jest toast błędu
     return (
         <div className="p-8 text-center min-h-screen flex flex-col justify-center items-center">
-            <p className="text-gray-700 bg-yellow-100 p-4 rounded-md mb-4">Nie można załadować danych Róży o ID: {roseId}.</p>
+            <p className="text-gray-700 bg-yellow-100 p-4 rounded-md mb-4">
+                Nie można załadować danych Róży o ID: {roseId}. Sprawdź powiadomienia, aby uzyskać więcej informacji.
+            </p>
             <RouterLink to="/zelator-dashboard" className="px-5 py-2.5 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
                 ← Wróć do Panelu Zelatora
             </RouterLink>
@@ -241,7 +233,6 @@ const ManagedRoseDetailsPage: React.FC = () => {
             </div>
         )}
         
-        {/* Sekcja Głównej Intencji Róży */}
         <section className="bg-white p-6 rounded-xl shadow-xl">
           <h2 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-3">Główna Intencja Róży (na bieżący miesiąc)</h2>
           {currentMainIntention ? (
@@ -256,8 +247,8 @@ const ManagedRoseDetailsPage: React.FC = () => {
 
           <form onSubmit={handleMainIntentionSubmit} className="space-y-4">
             <h4 className="text-md font-medium text-gray-700">Ustaw lub zmień intencję na bieżący miesiąc/rok:</h4>
-            {intentionError && <p className="p-2 text-sm text-red-600 bg-red-100 rounded">{intentionError}</p>}
-            {intentionSuccess && <p className="p-2 text-sm text-green-600 bg-green-100 rounded">{intentionSuccess}</p>}
+            {/* {intentionError && <p className="p-2 text-sm text-red-600 bg-red-100 rounded">{intentionError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
+            {/* {intentionSuccess && <p className="p-2 text-sm text-green-600 bg-green-100 rounded">{intentionSuccess}</p>} */} {/* <<<< ZMIANA: Usunięto */}
             
             <div>
                 <label htmlFor="intentionText" className="block text-sm font-medium text-gray-700">Treść intencji <span className="text-red-500">*</span></label>
@@ -281,19 +272,17 @@ const ManagedRoseDetailsPage: React.FC = () => {
           </form>
         </section>
 
-        {/* Sekcja Intencji Udostępnionych w Tej Róży */}
         <section className="bg-white p-6 rounded-xl shadow-xl">
             <h2 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-3">Intencje Udostępnione w Róży "{currentRose?.name}"</h2>
             
-            {/* isLoading był globalny, więc sprawdzamy, czy dane są już załadowane */}
-            {!isLoading && sharedIntentionsError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{sharedIntentionsError}</p>}
+            {/* {!isLoading && sharedIntentionsError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{sharedIntentionsError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
             
-            {!isLoading && sharedIntentions.length === 0 && !sharedIntentionsError && (
+            {!isLoading && sharedIntentions.length === 0 /* && !sharedIntentionsError */ && ( // <<<< ZMIANA: Usunięto !sharedIntentionsError
             <p className="text-gray-600 text-center py-4">Brak udostępnionych intencji w tej Róży.</p>
             )}
 
             {sharedIntentions.length > 0 && (
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-2"> {/* Dodano pr-2 dla scrollbara */}
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                 {sharedIntentions.map(intention => (
                 <div key={intention.id} className="p-3 bg-blue-50 rounded-md border border-blue-200">
                     <p className="text-gray-800 text-sm whitespace-pre-wrap mb-1.5">{intention.text}</p>
@@ -307,11 +296,10 @@ const ManagedRoseDetailsPage: React.FC = () => {
             )}
         </section>
 
-        {/* Sekcja Dodawania Członka */}
         <section className="bg-white p-6 rounded-xl shadow-xl">
             <h3 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-3">Dodaj Nowego Członka</h3>
-            {addMemberError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{addMemberError}</p>}
-            {addMemberSuccess && <p className="mb-3 p-2 text-sm text-green-600 bg-green-100 rounded">{addMemberSuccess}</p>}
+            {/* {addMemberError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{addMemberError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
+            {/* {addMemberSuccess && <p className="mb-3 p-2 text-sm text-green-600 bg-green-100 rounded">{addMemberSuccess}</p>} */} {/* <<<< ZMIANA: Usunięto */}
             <form onSubmit={handleAddMember} className="flex flex-col sm:flex-row sm:items-end gap-4">
                 <div className="flex-grow">
                     <label htmlFor="userIdToAdd" className="block text-sm font-medium text-gray-700 mb-1">
@@ -337,12 +325,11 @@ const ManagedRoseDetailsPage: React.FC = () => {
             </form>
         </section>
 
-        {/* Sekcja Listy Członków */}
         <section className="bg-white p-6 rounded-xl shadow-xl">
           <h2 className="text-2xl font-semibold text-gray-700 mb-5 border-b pb-3">
             Członkowie Róży ({currentRose?._count?.members ?? members.length} / {20})
           </h2>
-          {removeMemberError && <p className="mb-3 p-3 text-sm text-red-700 bg-red-100 rounded-md">{removeMemberError}</p>}
+          {/* {removeMemberError && <p className="mb-3 p-3 text-sm text-red-700 bg-red-100 rounded-md">{removeMemberError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
           
           {!isLoading && members.length === 0 ? (
             <p className="text-gray-600 py-4 text-center">Ta Róża nie ma jeszcze żadnych członków.</p>

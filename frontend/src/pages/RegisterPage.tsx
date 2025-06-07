@@ -1,41 +1,48 @@
+// frontend/src/pages/RegisterPage.tsx
 import React, { useState } from 'react';
 import apiClient from '../services/api';
-import { Link as RouterLink, useNavigate } from 'react-router-dom'; // Importuj useNavigate i RouterLink
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner'; // <<<< ZMIANA: Dodano import
+
 const RegisterPage: React.FC = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
+    // const [error, setError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
+    // const [success, setSuccess] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
     const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      setError(null);
-      setSuccess(null);
+      // setError(null); // <<<< ZMIANA: Usunięto
+      // setSuccess(null); // <<<< ZMIANA: Usunięto
       setIsSubmitting(true);
 
       if (password !== confirmPassword) {
-        setError('Hasła nie są identyczne.');
+        // setError('Hasła nie są identyczne.'); // <<<< ZMIANA: Usunięto
+        toast.error('Hasła nie są identyczne.'); // <<<< ZMIANA: Dodano toast
         setIsSubmitting(false);
         return;
       }
-      if (password.length < 6) { // Prosta walidacja długości hasła
-        setError('Hasło musi mieć co najmniej 6 znaków.');
+      if (password.length < 6) {
+        // setError('Hasło musi mieć co najmniej 6 znaków.'); // <<<< ZMIANA: Usunięto
+        toast.warning('Hasło musi mieć co najmniej 6 znaków.'); // <<<< ZMIANA: Dodano toast
         setIsSubmitting(false);
         return;
       }
 
       try {
         await apiClient.post('/auth/register', { name, email, password });
-        setSuccess('Rejestracja pomyślna! Zostaniesz przekierowany na stronę logowania...');
+        // setSuccess('Rejestracja pomyślna! Zostaniesz przekierowany na stronę logowania...'); // <<<< ZMIANA: Usunięto
+        toast.success('Rejestracja pomyślna! Zostaniesz przekierowany na stronę logowania...'); // <<<< ZMIANA: Dodano toast
         setTimeout(() => {
           navigate('/login');
-        }, 2500); // Przekieruj po 2.5 sekundach
+        }, 2500);
       } catch (err: any) {
-        setError(err.response?.data?.error || 'Nie udało się zarejestrować. Spróbuj użyć innego adresu email.');
+        // setError(err.response?.data?.error || 'Nie udało się zarejestrować. Spróbuj użyć innego adresu email.'); // <<<< ZMIANA: Usunięto
+        toast.error(err.response?.data?.error || 'Nie udało się zarejestrować. Spróbuj użyć innego adresu email.'); // <<<< ZMIANA: Dodano toast
       } finally {
         setIsSubmitting(false);
       }
@@ -45,8 +52,8 @@ const RegisterPage: React.FC = () => {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-green-400 to-teal-600 p-4">
         <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-xl shadow-2xl">
           <h2 className="text-3xl font-bold text-center text-gray-800">Stwórz konto</h2>
-          {error && <p className="text-red-600 text-sm text-center bg-red-100 p-2 rounded">{error}</p>}
-          {success && <p className="text-green-600 text-sm text-center bg-green-100 p-2 rounded">{success}</p>}
+          {/* {error && <p className="text-red-600 text-sm text-center bg-red-100 p-2 rounded">{error}</p>} */} {/* <<<< ZMIANA: Usunięto */}
+          {/* {success && <p className="text-green-600 text-sm text-center bg-green-100 p-2 rounded">{success}</p>} */} {/* <<<< ZMIANA: Usunięto */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">Imię (opcjonalnie)</label>

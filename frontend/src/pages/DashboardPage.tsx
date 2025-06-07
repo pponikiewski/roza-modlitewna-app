@@ -6,23 +6,23 @@ import type {
     UserMembership, 
     MysteryHistoryResponse, 
     MysteryHistoryEntry,
-    // UserIntention // Included in UserMembership.sharedIntentionsPreview
 } from '../types/rosary.types';
 import { Link as RouterLink } from 'react-router-dom';
+import { toast } from 'sonner'; // <<<< ZMIANA: Dodano import
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth(); 
   
   const [myMemberships, setMyMemberships] = useState<UserMembership[]>([]);
   const [isLoadingMemberships, setIsLoadingMemberships] = useState(true);
-  const [membershipsError, setMembershipsError] = useState<string | null>(null);
+  // const [membershipsError, setMembershipsError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
   const [selectedMembershipForHistory, setSelectedMembershipForHistory] = useState<UserMembership | null>(null);
   const [mysteryHistory, setMysteryHistory] = useState<MysteryHistoryEntry[] | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
+  // const [historyError, setHistoryError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
-  const [confirmError, setConfirmError] = useState<string | null>(null);
+  // const [confirmError, setConfirmError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
   const [isConfirming, setIsConfirming] = useState<string | null>(null);
 
   const fetchMyMemberships = useCallback(async () => {
@@ -31,13 +31,13 @@ const DashboardPage: React.FC = () => {
         return;
     }
     setIsLoadingMemberships(true);
-    setMembershipsError(null);
+    // setMembershipsError(null); // <<<< ZMIANA: Usunięto
     try {
       const response = await apiClient.get<UserMembership[]>('/me/memberships');
       setMyMemberships(response.data);
     } catch (err: any) {
       console.error("Błąd pobierania członkostw użytkownika:", err);
-      setMembershipsError(err.response?.data?.error || 'Nie udało się pobrać listy Twoich Róż.');
+      toast.error(err.response?.data?.error || 'Nie udało się pobrać listy Twoich Róż.'); // <<<< ZMIANA: Dodano toast
       setMyMemberships([]);
     } finally {
       setIsLoadingMemberships(false);
@@ -56,11 +56,11 @@ const DashboardPage: React.FC = () => {
 
   const handleConfirmMystery = async (membershipIdToConfirm: string, currentMysteryId: string | null) => {
      if (!membershipIdToConfirm || !currentMysteryId) {
-         setConfirmError('Brak ID członkostwa lub tajemnicy do potwierdzenia.');
+         toast.warning('Brak ID członkostwa lub tajemnicy do potwierdzenia.'); // <<<< ZMIANA: Dodano toast
          return;
      }
      setIsConfirming(membershipIdToConfirm);
-     setConfirmError(null);
+     // setConfirmError(null); // <<<< ZMIANA: Usunięto
      try {
          const response = await apiClient.patch<UserMembership>(`/me/memberships/${membershipIdToConfirm}/confirm-mystery`);
          setMyMemberships(prevMemberships => 
@@ -70,9 +70,10 @@ const DashboardPage: React.FC = () => {
                 : memb
             )
          );
+         toast.success("Tajemnica została potwierdzona!"); // <<<< ZMIANA: Dodano toast
      } catch (err: any) {
          console.error("Błąd potwierdzania tajemnicy:", err);
-         setConfirmError(err.response?.data?.error || 'Nie udało się potwierdzić tajemnicy.');
+         toast.error(err.response?.data?.error || 'Nie udało się potwierdzić tajemnicy.'); // <<<< ZMIANA: Dodano toast
      } finally {
         setIsConfirming(null);
      }
@@ -80,19 +81,19 @@ const DashboardPage: React.FC = () => {
   
   const fetchMysteryHistory = async (membership: UserMembership) => {
      if (!membership || !membership.id) {
-         setHistoryError('Brak informacji o członkostwiem, aby pobrać historię.');
+         toast.warning('Brak informacji o członkostwie, aby pobrać historię.'); // <<<< ZMIANA: Dodano toast
          return;
      }
      setSelectedMembershipForHistory(membership);
      setIsLoadingHistory(true);
-     setHistoryError(null);
+     // setHistoryError(null); // <<<< ZMIANA: Usunięto
      setMysteryHistory(null);
      try {
          const response = await apiClient.get<MysteryHistoryResponse>(`/me/memberships/${membership.id}/mystery-history`);
          setMysteryHistory(response.data.history);
      } catch (err:any) {
          console.error("Błąd pobierania historii tajemnic:", err);
-         setHistoryError(err.response?.data?.error || 'Nie udało się pobrać historii tajemnic.');
+         toast.error(err.response?.data?.error || 'Nie udało się pobrać historii tajemnic.'); // <<<< ZMIANA: Dodano toast
          setMysteryHistory(null);
      } finally {
          setIsLoadingHistory(false);
@@ -122,12 +123,11 @@ const DashboardPage: React.FC = () => {
             <p className="text-sm text-gray-500">Twoja rola w systemie: <span className="font-semibold">{user.role}</span></p>
         </div>
 
-        {membershipsError && <p className="p-3 text-red-700 bg-red-100 border border-red-300 rounded-md">{membershipsError}</p>}
+        {/* {membershipsError && <p className="p-3 text-red-700 bg-red-100 border border-red-300 rounded-md">{membershipsError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
         
         {myMemberships.length > 0 ? (
             myMemberships.map(membership => (
             <div key={membership.id} className="bg-white p-6 rounded-lg shadow-xl">
-                {/* --- Nagłówek Róży --- */}
                 <div className="border-b border-gray-200 pb-4 mb-4">
                     <h2 className="text-xl sm:text-2xl font-semibold text-indigo-700 mb-1">
                     {membership.rose.name}
@@ -138,7 +138,6 @@ const DashboardPage: React.FC = () => {
                     </p>
                 </div>
                 
-                {/* --- Główna Intencja Róży --- */}
                 {membership.currentMainIntentionForRose ? (
                 <div className="mb-6 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-md">
                     <h4 className="text-sm font-semibold text-amber-800 mb-1">Główna Intencja tej Róży (ten miesiąc):</h4>
@@ -153,7 +152,37 @@ const DashboardPage: React.FC = () => {
                 <p className="mb-6 text-sm text-gray-500 italic">Brak ustawionej głównej intencji dla tej Róży na bieżący miesiąc.</p>
                 )}
 
-                {/* --- Aktualna Tajemnica Użytkownika w tej Róży --- */}
+                <div className="mt-6 mb-6 pt-4 border-t border-gray-200">
+                    <h4 className="text-md font-semibold text-gray-700 mb-2">Intencje Udostępnione przez Członków:</h4>
+                    {membership.sharedIntentionsPreview && membership.sharedIntentionsPreview.length > 0 ? (
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 text-sm">
+                            {membership.sharedIntentionsPreview.map(intention => (
+                                <div key={intention.id} className="p-2.5 bg-green-50 border border-green-200 rounded-md">
+                                    <p className="text-gray-800 whitespace-pre-wrap text-xs sm:text-sm">
+                                        {intention.text}
+                                    </p>
+                                    {intention.author && (
+                                    <p className="text-xs text-green-700 mt-1">
+                                        Przez: {intention.author?.name || intention.author?.email || 'Anonim'}
+                                        <span className="text-gray-500 ml-2">
+                                            ({new Date(intention.createdAt).toLocaleDateString('pl-PL')})
+                                        </span>
+                                    </p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-gray-500 italic">Brak udostępnionych intencji w tej Róży.</p>
+                    )}
+                    <RouterLink 
+                        to="/my-intentions"
+                        className="mt-3 inline-block text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+                    >
+                        Dodaj lub zarządzaj swoimi intencjami
+                    </RouterLink>
+                </div>
+
                 {membership.currentMysteryFullDetails ? (
                 <div className="mb-6">
                     <h3 className="text-lg md:text-xl font-semibold text-blue-700">{membership.currentMysteryFullDetails.name}</h3>
@@ -173,7 +202,7 @@ const DashboardPage: React.FC = () => {
                     <p className="text-gray-700 text-sm whitespace-pre-wrap">{membership.currentMysteryFullDetails.contemplation}</p>
                     </div>
 
-                    {confirmError && isConfirming === membership.id && <p className="mb-2 p-2 text-xs text-red-600 bg-red-100 rounded">{confirmError}</p>}
+                    {/* {confirmError && isConfirming === membership.id && <p className="mb-2 p-2 text-xs text-red-600 bg-red-100 rounded">{confirmError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
                     {membership.mysteryConfirmedAt ? (
                     <p className="text-green-600 bg-green-100 p-2.5 rounded-md text-sm font-medium inline-block">
                         Potwierdzono: {new Date(membership.mysteryConfirmedAt).toLocaleString('pl-PL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -192,14 +221,13 @@ const DashboardPage: React.FC = () => {
                 <p className="text-gray-600 mt-4 py-2">Nie masz jeszcze przydzielonej tajemnicy w tej Róży. Poczekaj na przydział.</p>
                 )}
 
-                {/* --- Historia Tajemnic dla tego członkostwa --- */}
                 <div className="mt-6 border-t border-gray-200 pt-4">
                     {selectedMembershipForHistory?.id === membership.id && isLoadingHistory ? (
                         <p className="text-sm text-gray-600">Ładowanie historii...</p>
                     ) : selectedMembershipForHistory?.id === membership.id && mysteryHistory ? (
                         <>
                             <button onClick={() => { setMysteryHistory(null); setSelectedMembershipForHistory(null); }} className="text-sm text-blue-600 hover:underline mb-3 block">Ukryj historię</button>
-                            {historyError && <p className="mb-2 p-2 text-xs text-red-600 bg-red-100 rounded">{historyError}</p>}
+                            {/* {historyError && <p className="mb-2 p-2 text-xs text-red-600 bg-red-100 rounded">{historyError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
                             {mysteryHistory.length > 0 ? (
                                 <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
                                     {mysteryHistory.map(entry => (
@@ -221,43 +249,10 @@ const DashboardPage: React.FC = () => {
                         </button>
                     )}
                 </div>
-
-                {/* --- Sekcja Udostępnionych Intencji dla tej Róży (PRZENIESIONA TUTAJ) --- */}
-                <div className="mt-8 pt-6 border-t border-gray-200"> {/* Dodano mt-8 i pt-6 dla większego odstępu */}
-                    <h4 className="text-md font-semibold text-gray-700 mb-3">Intencje Udostępnione przez Członków tej Róży:</h4>
-                    {membership.sharedIntentionsPreview && membership.sharedIntentionsPreview.length > 0 ? (
-                        <div className="space-y-3 max-h-56 overflow-y-auto pr-2 text-sm"> {/* Zwiększono max-h i space-y */}
-                            {membership.sharedIntentionsPreview.map(intention => (
-                                <div key={intention.id} className="p-3 bg-green-50 border border-green-200 rounded-md shadow-sm"> {/* Dodano shadow-sm i zwiększono padding */}
-                                    <p className="text-gray-800 whitespace-pre-wrap text-sm">
-                                        {intention.text}
-                                    </p>
-                                    {intention.author && (
-                                    <p className="text-xs text-green-700 mt-1.5"> {/* Zwiększono mt */}
-                                        Przez: {intention.author?.name || intention.author?.email || 'Anonim'}
-                                        <span className="text-gray-500 ml-2">
-                                            ({new Date(intention.createdAt).toLocaleDateString('pl-PL', { day: '2-digit', month: 'short', year: 'numeric'})})
-                                        </span>
-                                    </p>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-gray-500 italic">Brak udostępnionych intencji w tej Róży.</p>
-                    )}
-                    <RouterLink 
-                        to="/my-intentions"
-                        className="mt-4 inline-block text-sm text-indigo-600 hover:text-indigo-800 hover:underline" /* Zwiększono mt i text-sm */
-                    >
-                        Dodaj lub zarządzaj swoimi intencjami
-                    </RouterLink>
-                </div>
-
-            </div> // Koniec karty membership
+            </div>
             ))
         ) : (
-            !isLoadingMemberships && !membershipsError && (
+            !isLoadingMemberships && /* !membershipsError && */ ( // <<<< ZMIANA: Usunięto !membershipsError
                 <div className="bg-white p-6 rounded-lg shadow-lg text-center">
                     <p className="text-gray-700 text-lg">Nie należysz jeszcze do żadnej Róży.</p>
                     <p className="text-gray-500 mt-2">Skontaktuj się z Zelatorem lub Administratorem, aby dołączyć do Róży.</p>

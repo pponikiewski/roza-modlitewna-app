@@ -3,91 +3,89 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
 import { Link as RouterLink } from 'react-router-dom';
-// Zaimportuj typ ManagedRose z zelator.types.ts
 import type { ManagedRose } from '../types/zelator.types'; 
-// Zaimportuj UserRoles do sprawdzania uprawnień
-import { UserRoles, type UserRole } from '../types/user.types'; 
+import { UserRoles } from '../types/user.types';
+import { toast } from 'sonner'; // <<<< ZMIANA: Dodano import
 
 
 const ZelatorDashboardPage: React.FC = () => {
-  const { user } = useAuth(); // Pobieramy dane zalogowanego użytkownika
+  const { user } = useAuth();
   const [managedRoses, setManagedRoses] = useState<ManagedRose[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // const [error, setError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
   const fetchManagedRoses = useCallback(async () => {
-    // Sprawdzenie, czy użytkownik jest załadowany i ma odpowiednią rolę
     if (!user || (user.role !== UserRoles.ZELATOR && user.role !== UserRoles.ADMIN)) {
-      setError("Nie masz uprawnień, aby wyświetlić tę stronę.");
+      toast.error("Nie masz uprawnień, aby wyświetlić tę stronę."); // <<<< ZMIANA: Dodano toast
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
-    setError(null);
+    // setError(null); // <<<< ZMIANA: Usunięto
     try {
-      // Endpoint /zelator/my-roses zwraca Róże zarządzane przez Zelatora,
-      // lub wszystkie Róże, jeśli zalogowany jest Admin (zgodnie z logiką backendu)
       const response = await apiClient.get<ManagedRose[]>('/zelator/my-roses');
       setManagedRoses(response.data);
     } catch (err: any) {
       console.error("Błąd pobierania zarządzanych Róż:", err);
+      let errorMessage = 'Nie udało się pobrać danych o Twoich Różach.';
       if (err.response?.status === 403) {
-        setError("Nie masz uprawnień do pobrania listy zarządzanych Róż.");
-      } else {
-        setError(err.response?.data?.error || 'Nie udało się pobrać danych o Twoich Różach.');
+        errorMessage = "Nie masz uprawnień do pobrania listy zarządzanych Róż.";
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
       }
+      toast.error(errorMessage); // <<<< ZMIANA: Dodano toast
+      // setError(errorMessage); // <<<< ZMIANA: Usunięto
     } finally {
       setIsLoading(false);
     }
-  }, [user]); // Zależność od 'user'
+  }, [user]);
 
   useEffect(() => {
-    // Wywołaj fetchManagedRoses tylko jeśli 'user' jest dostępny
     if (user) {
       fetchManagedRoses();
     } else {
-      // Jeśli user jest null (np. AuthContext jeszcze się nie załadował lub użytkownik nie jest zalogowany)
-      // ProtectedRoute w App.tsx powinien to obsłużyć i przekierować,
-      // ale dla pewności można ustawić isLoading na false i ewentualnie error.
+      // Jeśli user jest null, ProtectedRoute powinien przekierować.
+      // Nie ma potrzeby ustawiać tu błędu, bo isLoading pozostanie true
+      // lub ProtectedRoute zadziała zanim useEffect się wykona w pełni.
       setIsLoading(false); 
-      // setError("Brak danych użytkownika do załadowania panelu Zelatora."); // Opcjonalnie
     }
-  }, [fetchManagedRoses, user]); // Dodano 'user' do zależności
+  }, [fetchManagedRoses, user]);
 
-  // Obsługa stanu ładowania (globalny dla tej strony)
   if (isLoading) {
     return <div className="p-8 text-center text-xl text-gray-700">Ładowanie Panelu Zelatora...</div>;
   }
 
-  // Obsługa błędów lub braku uprawnień (jeśli useEffect nie złapał tego wcześniej)
-  if (error) {
-    return (
-      <div className="p-8 text-center">
-        <p className="text-red-600 bg-red-100 p-4 rounded-md mb-4">{error}</p>
-        <RouterLink to="/dashboard" className="text-blue-600 hover:underline">Wróć do Panelu Głównego</RouterLink>
-      </div>
-    );
-  }
+  // if (error) { // <<<< ZMIANA: Usunięto ten blok, toasty są globalne
+  //   return (
+  //     <div className="p-8 text-center">
+  //       <p className="text-red-600 bg-red-100 p-4 rounded-md mb-4">{error}</p>
+  //       <RouterLink to="/dashboard" className="text-blue-600 hover:underline">Wróć do Panelu Głównego</RouterLink>
+  //     </div>
+  //   );
+  // }
   
-  // Dodatkowe zabezpieczenie, choć ProtectedRoute w App.tsx powinien to załatwić
+  // Ten warunek może być zbędny, jeśli ProtectedRoute i logika w fetchManagedRoses działają poprawnie
+  // i toast błędu już się pojawił. Jednak jako dodatkowe zabezpieczenie można go zostawić.
   if (!user || (user.role !== UserRoles.ZELATOR && user.role !== UserRoles.ADMIN)) {
+    // Toast powinien być już wyświetlony przez fetchManagedRoses lub ProtectedRoute
     return (
         <div className="p-8 text-center">
             <p className="text-red-600 bg-red-100 p-4 rounded-md">Nie masz uprawnień do wyświetlenia tej strony.</p>
+             <RouterLink to="/dashboard" className="text-blue-600 hover:underline">Wróć do Panelu Głównego</RouterLink>
         </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-8 bg-slate-100"> {/* Używamy bg-slate-50 dla spójności */}
+    <div className="p-4 md:p-8 bg-slate-100">
       <div className="max-w-5xl mx-auto">
         <div className="mb-8 pb-4 border-b border-gray-300">
             <h1 className="text-3xl font-bold text-gray-800">Panel Zelatora</h1>
             <p className="text-md text-gray-600">Witaj, {user.name || user.email}!</p>
         </div>
         
-        {managedRoses.length === 0 && !isLoading && ( // Sprawdzamy !isLoading, aby nie pokazywać, gdy jeszcze się ładuje
+        {managedRoses.length === 0 && !isLoading && (
           <div className="bg-white p-6 rounded-lg shadow text-center">
             <p className="text-gray-700 text-lg">
               {user.role === UserRoles.ADMIN ? "Nie ma jeszcze żadnych Róż w systemie." : "Nie zarządzasz jeszcze żadnymi Różami."}
@@ -112,7 +110,7 @@ const ZelatorDashboardPage: React.FC = () => {
                         <h3 className="text-xl font-semibold text-indigo-700 mb-1">{rose.name}</h3>
                         {rose.description && <p className="text-gray-600 text-sm mb-2 italic">"{rose.description}"</p>}
                         <div className="text-xs text-gray-500 space-y-0.5">
-                            {user.role === UserRoles.ADMIN && rose.zelator && ( // Admin widzi Zelatora każdej Róży
+                            {user.role === UserRoles.ADMIN && rose.zelator && (
                                 <p>Zelator: <span className="font-medium">{rose.zelator.name || rose.zelator.email}</span> (ID: <span className="font-mono">{rose.zelator.id}</span>)</p>
                             )}
                             <p>Liczba członków: <span className="font-medium text-gray-700">{rose._count?.members ?? 0}</span> / {20}</p>
