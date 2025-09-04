@@ -10,9 +10,10 @@ import AdminPanelPage from './pages/AdminPanelPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminRosesPage from './pages/AdminRosesPage';
 import MyIntentionsPage from './pages/MyIntentionsPage';
+import ProfilePage from './pages/ProfilePage'; // Upewnij się, że ten import jest
 import { useAuth } from "./contexts/AuthContext";
 import { UserRoles, type UserRole } from './types/user.types';
-import { Toaster } from 'sonner'; // <<<< NOWY IMPORT
+import { Toaster } from 'sonner'; // Import komponentu Toaster
 
 // Komponent chronionej trasy (bez zmian)
 const ProtectedRoute: React.FC<{ children: React.ReactElement; allowedRoles?: UserRole[] }> = ({ children, allowedRoles }) => {
@@ -70,7 +71,7 @@ function App() {
   }
 
   return (
-    // Dodajemy Fragment <>...</>, aby móc umieścić Toaster obok div.flex
+    // Używamy fragmentu <>...</>, aby Toaster był na tym samym poziomie co główny div aplikacji
     <>
       <div className="flex flex-col min-h-screen bg-slate-100">
       {user && (
@@ -81,7 +82,8 @@ function App() {
             </RouterLink>
             <div className="flex flex-wrap items-center space-x-2 sm:space-x-4 text-sm">
               <RouterLink to="/dashboard" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Panel Użytkownika</RouterLink>
-              <RouterLink to="/my-intentions" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Intencje</RouterLink>
+              <RouterLink to="/my-intentions" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Moje Intencje</RouterLink>
+              <RouterLink to="/profile" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Mój Profil</RouterLink>
               {(user.role === UserRoles.ZELATOR || user.role === UserRoles.ADMIN) && (
                 <RouterLink to="/zelator-dashboard" className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors">Panel Zelatora</RouterLink>
               )}
@@ -129,6 +131,14 @@ function App() {
                   </ProtectedRoute>
               }
           />
+          <Route 
+              path="/profile"
+              element={
+                  <ProtectedRoute>
+                      <ProfilePage />
+                  </ProtectedRoute>
+              }
+          />
           
           <Route 
             path="/zelator-dashboard" 
@@ -173,12 +183,12 @@ function App() {
       </main>
       </div>
       {/* 
-        Możesz dostosować pozycję, motyw itp. 
-        Zobacz dokumentację sonner: https://sonner.emilkowal.ski/
-        Domyślnie `sonner` wyświetla toasty w prawym górnym rogu.
-        Możesz dodać `richColors` dla ładniejszych domyślnych kolorów dla success/error/info/warning.
-        `closeButton` dodaje przycisk zamknięcia.
-        `duration` (w ms) kontroluje jak długo toast jest widoczny. Domyślnie to 4000ms.
+        Komponent Toaster z biblioteki 'sonner'.
+        Renderujemy go na najwyższym poziomie aplikacji, ale poza głównym div layoutu,
+        aby jego pozycjonowanie (np. fixed) nie wchodziło w konflikt z flexboxem.
+        'richColors' - włącza domyślne, ładne style dla toast.success(), toast.error() etc.
+        'closeButton' - dodaje przycisk 'X' do każdego powiadomienia.
+        'position' - określa, gdzie na ekranie mają się pojawiać powiadomienia.
       */}
       <Toaster richColors closeButton position="top-right" /> 
     </>

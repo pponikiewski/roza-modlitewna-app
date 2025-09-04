@@ -5,7 +5,8 @@ console.log(">>>> ŁADOWANIE PLIKU: member.routes.ts (START)"); // Log startu ł
 import { 
     confirmMysteryRead, 
     getMysteryHistory, 
-    listMyMemberships // Upewnij się, że ta funkcja jest poprawnie zaimportowana
+    listMyMemberships,
+    changePassword // Upewnij się, że ta funkcja jest poprawnie zaimportowana
 } from './member.controller'; 
 // getCurrentMysteryInfo można usunąć, jeśli listMyMemberships dostarcza wystarczająco
 import { authenticateToken } from '../auth/auth.middleware';
@@ -31,6 +32,9 @@ console.log(">>>> member.routes.ts: Trasa PATCH '/:membershipId/confirm-mystery'
 
 router.get('/:membershipId/mystery-history', getMysteryHistory);
 console.log(">>>> member.routes.ts: Trasa GET '/:membershipId/mystery-history' zarejestrowana");
+
+// NOWA TRASA: Zmiana hasła
+router.post('/change-password', changePassword); // Używamy POST lub PATCH
 
 export default router;
 console.log(">>>> ŁADOWANIE PLIKU: member.routes.ts (KONIEC)");

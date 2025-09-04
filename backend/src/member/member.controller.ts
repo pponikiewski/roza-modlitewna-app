@@ -3,6 +3,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import prisma from '../db';
 import { findMysteryById, RosaryMystery } from '../utils/constants'; // Upewnij się, że RosaryMystery jest tu typem obiektu
+import bcrypt from 'bcryptjs'; // <<<< DODAJ IMPORT BCRYPTJS
 
 console.log("ŁADOWANIE PLIKU: member.controller.ts"); // <<<< DODAJ TEN LOG
 
@@ -312,6 +313,63 @@ export const listMyMemberships = async (req: AuthenticatedRequest, res: Response
 
   } catch (error) {
     console.error('[listMyMemberships] Błąd:', error);
+    next(error);
+  }
+};
+
+// NOWA FUNKCJA: Zmiana hasła przez zalogowanego użytkownika
+export const changePassword = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { oldPassword, newPassword } = req.body;
+  const userId = req.user?.userId;
+
+  console.log(`[changePassword] Użytkownik ${userId} próbuje zmienić hasło.`);
+  try {
+    if (!userId) {
+      res.status(403).json({ error: 'Użytkownik niezidentyfikowany.' });
+      return;
+    }
+
+    if (!oldPassword || !newPassword) {
+      res.status(400).json({ error: 'Stare i nowe hasło są wymagane.' });
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: 'Nowe hasło musi mieć co najmniej 6 znaków.' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      res.status(404).json({ error: 'Nie znaleziono użytkownika.' });
+      return;
+    }
+
+    // 1. Sprawdź, czy stare hasło jest poprawne
+    const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isPasswordValid) {
+      res.status(401).json({ error: 'Podane stare hasło jest nieprawidłowe.' });
+      return;
+    }
+    
+    // 2. Sprawdź, czy nowe hasło nie jest takie samo jak stare
+    if (oldPassword === newPassword) {
+        res.status(400).json({ error: 'Nowe hasło musi być inne niż stare.' });
+        return;
+    }
+
+    // 3. Zahashuj i zaktualizuj nowe hasło
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    console.log(`[changePassword] Pomyślnie zmieniono hasło dla użytkownika ${userId}.`);
+    res.status(200).json({ message: 'Hasło zostało pomyślnie zmienione.' });
+
+  } catch (error) {
+    console.error('[changePassword] Błąd:', error);
     next(error);
   }
 };
