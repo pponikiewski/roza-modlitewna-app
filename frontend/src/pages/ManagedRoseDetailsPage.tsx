@@ -212,13 +212,6 @@ const ManagedRoseDetailsPage: React.FC = () => {
     }
   };
 
-  // Funkcja do wyboru użytkownika z listy (single select - dla kompatybilności)
-  const selectUser = (user: AvailableUser) => {
-    setUserIdToAdd(user.id);
-    setSelectedUsers([user.id]);
-    setShowUserSelector(false);
-  };
-
   // Funkcja do toggle użytkownika w multi-select
   const toggleUserSelection = (userId: string) => {
     setSelectedUsers(prev => {

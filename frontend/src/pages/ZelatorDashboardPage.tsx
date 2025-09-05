@@ -89,7 +89,6 @@ const ZelatorDashboardPage: React.FC = () => {
       <div className="max-w-5xl mx-auto">
         <div className="mb-8 pb-4 border-b border-gray-300">
             <h1 className="text-3xl font-bold text-gray-800">Panel Zelatora</h1>
-            <p className="text-md text-gray-600">Witaj, {user.name || user.email}!</p>
         </div>
         
         {managedRoses.length === 0 && !isLoading && (

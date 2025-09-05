@@ -22,6 +22,9 @@ const DashboardPage: React.FC = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   // const [historyError, setHistoryError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
 
+  // State dla modala z powiększoną grafiką tajemnicy
+  const [enlargedImage, setEnlargedImage] = useState<{url: string, title: string} | null>(null);
+
   // const [confirmError, setConfirmError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
   const [isConfirming, setIsConfirming] = useState<string | null>(null);
 
@@ -119,25 +122,6 @@ const DashboardPage: React.FC = () => {
     <div className="p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         
-        {/* Welcome Header */}
-        <div className="card p-8 bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-100">
-            <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-2xl text-white font-bold">U</span>
-                </div>
-                <div>
-                    <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-700 to-purple-700 bg-clip-text text-transparent mb-2">
-                        Witaj, {user.name || user.email}!
-                    </h1>
-                    <div className="flex items-center space-x-2">
-                        <span className="badge badge-info">
-                            {user.role}
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         {/* {membershipsError && <p className="p-3 text-red-700 bg-red-100 border border-red-300 rounded-md">{membershipsError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
         
         {myMemberships.length > 0 ? (
@@ -179,36 +163,7 @@ const DashboardPage: React.FC = () => {
                     </div>
                     ) : (
                         <p className="mb-6 text-sm text-gray-500 italic">Brak ustawionej głównej intencji dla tej Róży na bieżący miesiąc.</p>
-                    )}                <div className="mt-6 mb-6 pt-4 border-t border-gray-200">
-                    <h4 className="text-md font-semibold text-gray-700 mb-2">Intencje Udostępnione przez Członków:</h4>
-                    {membership.sharedIntentionsPreview && membership.sharedIntentionsPreview.length > 0 ? (
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2 text-sm">
-                            {membership.sharedIntentionsPreview.map(intention => (
-                                <div key={intention.id} className="p-2.5 bg-green-50 border border-green-200 rounded-md">
-                                    <p className="text-gray-800 whitespace-pre-wrap text-xs sm:text-sm">
-                                        {intention.text}
-                                    </p>
-                                    {intention.author && (
-                                    <p className="text-xs text-green-700 mt-1">
-                                        Przez: {intention.author?.name || intention.author?.email || 'Anonim'}
-                                        <span className="text-gray-500 ml-2">
-                                            ({new Date(intention.createdAt).toLocaleDateString('pl-PL')})
-                                        </span>
-                                    </p>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-gray-500 italic">Brak udostępnionych intencji w tej Róży.</p>
                     )}
-                    <RouterLink 
-                        to="/my-intentions"
-                        className="mt-3 inline-block text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
-                    >
-                        Dodaj lub zarządzaj swoimi intencjami
-                    </RouterLink>
-                </div>
 
                 {membership.currentMysteryFullDetails ? (
                 <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
@@ -223,8 +178,13 @@ const DashboardPage: React.FC = () => {
                     <img 
                         src={membership.currentMysteryFullDetails.imageUrl} 
                         alt={`Grafika dla ${membership.currentMysteryFullDetails.name}`} 
-                        className="w-full max-w-xs mx-auto h-auto rounded-lg shadow-lg mb-4 object-contain" 
+                        className="w-full max-w-xs mx-auto h-auto rounded-lg shadow-lg mb-4 object-contain cursor-pointer hover:shadow-xl transition-shadow" 
                         style={{maxHeight: '200px'}}
+                        onClick={() => setEnlargedImage({
+                            url: membership.currentMysteryFullDetails!.imageUrl!,
+                            title: membership.currentMysteryFullDetails!.name
+                        })}
+                        title="Kliknij aby powiększyć"
                     />
                     )}
 
@@ -281,7 +241,12 @@ const DashboardPage: React.FC = () => {
                                             <img 
                                                 src={entry.mysteryDetails.imageUrl} 
                                                 alt={`Grafika dla ${entry.mysteryDetails.name}`} 
-                                                className="w-12 h-12 rounded object-cover flex-shrink-0" 
+                                                className="w-12 h-12 rounded object-cover flex-shrink-0 cursor-pointer hover:shadow-md transition-shadow" 
+                                                onClick={() => setEnlargedImage({
+                                                    url: entry.mysteryDetails!.imageUrl!,
+                                                    title: entry.mysteryDetails!.name || `Tajemnica ID: ${entry.mystery}`
+                                                })}
+                                                title="Kliknij aby powiększyć"
                                             />
                                             )}
                                             <div className="flex-grow">
@@ -318,7 +283,81 @@ const DashboardPage: React.FC = () => {
                 </div>
             )
         )}
+
+        {/* Sekcja intencji udostępnionych przez członków - na samym dole */}
+        {myMemberships.length > 0 && (
+          <div className="space-y-6">
+            {myMemberships.map(membership => (
+              <div key={membership.id} className="card p-6">
+                <div className="border-b border-gray-100 pb-4 mb-4">
+                  <h2 className="text-xl font-bold text-gray-800">
+                    Intencje w Róży: {membership.rose.name}
+                  </h2>
+                </div>
+                <div>
+                  <h4 className="text-md font-semibold text-gray-700 mb-3">Intencje Udostępnione przez Członków:</h4>
+                  {membership.sharedIntentionsPreview && membership.sharedIntentionsPreview.length > 0 ? (
+                    <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                      {membership.sharedIntentionsPreview.map(intention => (
+                        <div key={intention.id} className="p-3 bg-green-50 border border-green-200 rounded-md">
+                          <p className="text-gray-800 whitespace-pre-wrap text-sm">
+                            {intention.text}
+                          </p>
+                          {intention.author && (
+                            <p className="text-xs text-green-700 mt-2">
+                              Przez: {intention.author?.name || intention.author?.email || 'Anonim'}
+                              <span className="text-gray-500 ml-2">
+                                ({new Date(intention.createdAt).toLocaleDateString('pl-PL')})
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">Brak udostępnionych intencji w tej Róży.</p>
+                  )}
+                  <RouterLink 
+                    to="/my-intentions"
+                    className="mt-4 inline-block text-sm text-indigo-600 hover:text-indigo-800 hover:underline"
+                  >
+                    Dodaj lub zarządzaj swoimi intencjami
+                  </RouterLink>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Modal z powiększoną grafiką */}
+      {enlargedImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setEnlargedImage(null)}
+        >
+          <div className="relative bg-white rounded-lg p-4 max-w-md w-full max-h-[60vh] shadow-2xl">
+            <img 
+              src={enlargedImage.url} 
+              alt={enlargedImage.title}
+              className="w-full h-auto object-contain rounded-lg max-h-80"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button 
+              onClick={() => setEnlargedImage(null)}
+              className="absolute top-2 right-2 bg-gray-600 hover:bg-gray-800 text-white rounded-full w-6 h-6 flex items-center justify-center transition-colors text-xs"
+              title="Zamknij"
+            >
+              ✕
+            </button>
+            <div className="mt-3 text-center">
+              <p className="text-gray-800 font-semibold text-sm">
+                {enlargedImage.title}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
