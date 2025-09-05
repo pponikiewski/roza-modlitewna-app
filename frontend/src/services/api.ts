@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Podstawowy URL twojego backendu
-// W trybie deweloperskim backend działa na porcie 3001 (zgodnie z naszą konfiguracją)
+// W trybie deweloperskim backend działa na porcie 3001
 // W trybie produkcyjnym to będzie adres twojego wdrożonego backendu
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 

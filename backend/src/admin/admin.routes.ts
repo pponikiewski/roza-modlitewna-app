@@ -10,7 +10,8 @@ import {
     updateRoseDetails,
     triggerMysteryAssignmentForSpecificRose,
     deleteRose,
-    deleteUserByAdmin   // <<<< DODAJ IMPORT
+    deleteUserByAdmin,   // <<<< DODAJ IMPORT
+    getAllUsers          // Nowa funkcja
 } from './admin.controller';
 import { authenticateToken, isAdmin, authorizeRole  } from '../auth/auth.middleware';
 // UserRole nie jest bezpośrednio potrzebny w tym pliku, jeśli używamy isAdmin
@@ -19,6 +20,15 @@ import { UserRole } from '../types/user.types'; // Dodaj, jeśli potrzebne
 const router = Router();
 
 // --- Zarządzanie Użytkownikami ---
+
+// Pobieranie wszystkich użytkowników (przeniesione z index.ts)
+router.get(
+  '/users',
+  authenticateToken,
+  isAdmin,
+  getAllUsers
+);
+
 router.patch(
   '/users/:userIdToUpdate/role',
   authenticateToken,

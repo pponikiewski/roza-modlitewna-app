@@ -22,13 +22,17 @@ const app: Express = express();
 const port = process.env.PORT || 3001;
 
 // --- Konfiguracja CORS ---
-const allowedOrigins = ['http://localhost:5173']; 
+const allowedOrigins = [
+  'http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:5173',
+  'http://192.168.50.58:3000', 'http://192.168.50.58:3002', 'http://192.168.50.58:3003'
+]; 
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.log(`CORS: Zablokowano origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -76,40 +80,10 @@ app.use('/roses', roseSharedIntentionsRouter);
 console.log('Trasy /roses (dla shared-intentions) zarejestrowane.');
 
 
-// Endpoint do pobierania wszystkich użytkowników (Admin) - przykład trasy ogólnej
-app.get(
-  '/users', // Dostępne pod http://localhost:3001/users
-  authenticateToken,
-  authorizeRole([UserRole.ADMIN]),
-  async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      console.log(`Dostęp do /users przez użytkownika z rolą ADMIN: ${req.user?.email}`);
-      const users = await prisma.user.findMany({
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
-      res.json(users);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-console.log('Trasa GET /users zarejestrowana.');
+// Endpoint do pobierania wszystkich użytkowników (Admin) - przeniesiony do adminRoutes
+// Trasa /admin/users jest już obsługiwana przez adminRoutes
+console.log('Trasa GET /admin/users obsługiwana przez adminRoutes.');
 
-
-app.get('/me/my-memberships', (req, res) => {
-  console.log("TESTOWY ENDPOINT /me/my-memberships WYWOŁANY");
-  res.status(200).json({ message: "Testowy endpoint działa!" });
-});
 // --- Globalny Error Handler ---
 // Musi być zdefiniowany jako ostatni, po wszystkich app.use() i trasach.
 app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
@@ -133,6 +107,7 @@ app.listen(port, () => {
   console.log(`⚡️[server]: Serwer Express uruchomiony na http://localhost:${port}`);
   try {
     startScheduler();
+    console.log('Scheduler zainicjowany.');
   } catch (error) {
     console.error("Nie udało się uruchomić schedulera:", error);
   }

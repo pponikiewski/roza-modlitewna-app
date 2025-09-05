@@ -34,7 +34,6 @@ const LoginPage: React.FC = () => {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-400 to-indigo-600 p-4">
         <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-xl shadow-2xl">
           <h2 className="text-3xl font-bold text-center text-gray-800">Zaloguj się</h2>
-          {/* {error && <p className="text-red-600 text-sm text-center bg-red-100 p-2 rounded">{error}</p>} */} {/* <<<< ZMIANA: Usunięto */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">Adres email</label>

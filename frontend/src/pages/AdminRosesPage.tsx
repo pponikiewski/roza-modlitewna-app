@@ -56,7 +56,7 @@ const AdminRosesPage: React.FC = () => {
 
   const fetchAvailableZelators = useCallback(async () => {
     try {
-        const response = await apiClient.get<UserAdminView[]>('/users');
+        const response = await apiClient.get<UserAdminView[]>('/admin/users');
         const potentialZelators = response.data.filter(
             user => user.role === UserRoles.ZELATOR || user.role === UserRoles.ADMIN
         );
