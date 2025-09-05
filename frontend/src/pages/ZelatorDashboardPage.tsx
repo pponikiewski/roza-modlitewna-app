@@ -53,7 +53,14 @@ const ZelatorDashboardPage: React.FC = () => {
   }, [fetchManagedRoses, user]);
 
   if (isLoading) {
-    return <div className="p-8 text-center text-xl text-gray-700">Ładowanie Panelu Zelatora...</div>;
+    return (
+      <div className="p-8 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
+          <div className="text-xl text-gray-700">Ładowanie Panelu Zelatora...</div>
+        </div>
+      </div>
+    );
   }
 
   // if (error) { // <<<< ZMIANA: Usunięto ten blok, toasty są globalne

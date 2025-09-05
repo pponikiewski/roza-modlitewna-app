@@ -89,7 +89,7 @@ const LoginPage: React.FC = () => {
                 >
                   {isSubmitting ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      <div className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin"></div>
                       <span>Logowanie...</span>
                     </>
                   ) : (

@@ -58,14 +58,6 @@ const Navigation: React.FC = React.memo(() => {
               <span>Intencje</span>
             </RouterLink>
             
-            <RouterLink 
-              to="/profile" 
-              className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
-            >
-              <span>👤</span>
-              <span>Profil</span>
-            </RouterLink>
-            
             {isZelatorOrAdmin && (
               <RouterLink 
                 to="/zelator-dashboard" 
@@ -85,6 +77,14 @@ const Navigation: React.FC = React.memo(() => {
                 <span>Admin</span>
               </RouterLink>
             )}
+            
+            <RouterLink 
+              to="/profile" 
+              className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
+            >
+              <span>👤</span>
+              <span>Profil</span>
+            </RouterLink>
             
             <button
               onClick={logout}
@@ -117,13 +117,6 @@ const Navigation: React.FC = React.memo(() => {
                   <span>🙏</span>
                   <span>Intencje</span>
                 </RouterLink>
-                <RouterLink 
-                  to="/profile" 
-                  className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
-                >
-                  <span>👤</span>
-                  <span>Profil</span>
-                </RouterLink>
                 {isZelatorOrAdmin && (
                   <RouterLink 
                     to="/zelator-dashboard" 
@@ -142,6 +135,13 @@ const Navigation: React.FC = React.memo(() => {
                     <span>Admin</span>
                   </RouterLink>
                 )}
+                <RouterLink 
+                  to="/profile" 
+                  className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
+                >
+                  <span>👤</span>
+                  <span>Profil</span>
+                </RouterLink>
                 
                 <div className="border-t border-gray-200 my-2"></div>
                 <button
@@ -163,19 +163,9 @@ const Navigation: React.FC = React.memo(() => {
 // Wydzielony komponent loading spinner
 const LoadingSpinner: React.FC<{ message?: string }> = React.memo(({ message = "Ładowanie..." }) => (
   <div className="flex flex-grow items-center justify-center min-h-[50vh]">
-    <div className="text-center space-y-6 p-8">
-      <div className="relative">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div>
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-400 to-purple-500 opacity-20 animate-pulse"></div>
-      </div>
-      <div className="space-y-2">
-        <p className="text-gray-700 text-base font-medium">{message}</p>
-        <div className="flex justify-center space-x-1">
-          <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
-          <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-          <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-        </div>
-      </div>
+    <div className="text-center space-y-4 p-8">
+      <div className="w-8 h-8 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
+      <p className="text-gray-700 text-base">{message}</p>
     </div>
   </div>
 ));
@@ -265,21 +255,11 @@ function App() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
         <div className="text-center p-8">
-          <div className="relative mb-6">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div>
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-400 to-purple-500 opacity-20 animate-pulse"></div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              🌹 Róża Modlitewna
-            </p>
-            <p className="text-gray-600">Ładowanie aplikacji...</p>
-            <div className="flex justify-center space-x-1 mt-4">
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-            </div>
-          </div>
+          <div className="w-12 h-12 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            🌹 Róża Modlitewna
+          </p>
+          <p className="text-gray-600 mt-2">Ładowanie aplikacji...</p>
         </div>
       </div>
     );

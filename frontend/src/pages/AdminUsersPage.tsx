@@ -183,7 +183,14 @@ const AdminUsersPage: React.FC = () => {
   };
 
 
-  if (isLoading) return <p className="text-gray-600 p-4">Ładowanie użytkowników...</p>;
+  if (isLoading) return (
+    <div className="flex items-center justify-center p-8">
+      <div className="text-center space-y-4">
+        <div className="w-8 h-8 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
+        <p className="text-gray-600">Ładowanie użytkowników...</p>
+      </div>
+    </div>
+  );
 
   const anyModalOpen = !!viewingUser || !!editingUser || isConfirmDeleteDialogOpen;
 

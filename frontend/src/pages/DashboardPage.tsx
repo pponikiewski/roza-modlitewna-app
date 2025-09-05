@@ -108,11 +108,8 @@ const DashboardPage: React.FC = () => {
     return (
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-8">
             <div className="text-center space-y-4">
-                <div className="relative">
-                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div>
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-400 to-purple-500 opacity-20 animate-pulse"></div>
-                </div>
-                <p className="text-xl font-medium text-gray-700">Ładowanie Twoich danych...</p>
+                <div className="w-8 h-8 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
+                <p className="text-xl text-gray-700">Ładowanie Twoich danych...</p>
             </div>
         </div>
     );
@@ -255,7 +252,7 @@ const DashboardPage: React.FC = () => {
                         >
                             {isConfirming === membership.id ? (
                                 <span className="flex items-center space-x-2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                    <div className="w-4 h-4 border border-white border-t-transparent rounded-full animate-spin"></div>
                                     <span>Potwierdzanie...</span>
                                 </span>
                             ) : (
@@ -273,7 +270,10 @@ const DashboardPage: React.FC = () => {
 
                 <div className="mt-6 border-t border-gray-200 pt-4">
                     {selectedMembershipForHistory?.id === membership.id && isLoadingHistory ? (
-                        <p className="text-sm text-gray-600">Ładowanie historii...</p>
+                        <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 border border-gray-300 border-t-indigo-600 rounded-full animate-spin"></div>
+                            <p className="text-sm text-gray-600">Ładowanie historii...</p>
+                        </div>
                     ) : selectedMembershipForHistory?.id === membership.id && mysteryHistory ? (
                         <>
                             <button onClick={() => { setMysteryHistory(null); setSelectedMembershipForHistory(null); }} className="text-sm text-blue-600 hover:underline mb-3 block">Ukryj historię</button>
