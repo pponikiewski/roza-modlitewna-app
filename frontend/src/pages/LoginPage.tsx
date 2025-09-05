@@ -31,33 +31,89 @@ const LoginPage: React.FC = () => {
     };
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-400 to-indigo-600 p-4">
-        <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-xl shadow-2xl">
-          <h2 className="text-3xl font-bold text-center text-gray-800">Zaloguj się</h2>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">Adres email</label>
-              <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="block w-full px-4 py-2 mt-1 text-gray-900 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-gray-400" placeholder="ty@example.com" />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 p-4">
+        {/* Background effects */}
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27 width=%2732%27 height=%2732%27 fill=%27none%27 stroke=%27rgb(255 255 255 / 0.05)%27%3e%3cpath d=%27m0 .5 32 32M32 .5 0 32%27/%3e%3c/svg%3e')] opacity-30"></div>
+        
+        <div className="relative z-10 w-full max-w-md">
+          {/* Logo/Header */}
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 mx-auto bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
+              <span className="text-4xl">🌹</span>
             </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">Hasło</label>
-              <input id="password" name="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                className="block w-full px-4 py-2 mt-1 text-gray-900 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm placeholder-gray-400" placeholder="••••••••" />
+            <h1 className="text-3xl font-bold text-white mb-2">Róża Modlitewna</h1>
+            <p className="text-indigo-200">Zaloguj się do swojego konta</p>
+          </div>
+
+          <div className="card glass p-8 space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Adres email
+                </label>
+                <input 
+                  id="email" 
+                  name="email" 
+                  type="email" 
+                  autoComplete="email" 
+                  required 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-field" 
+                  placeholder="twoj@email.com" 
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Hasło
+                </label>
+                <input 
+                  id="password" 
+                  name="password" 
+                  type="password" 
+                  autoComplete="current-password" 
+                  required 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-field" 
+                  placeholder="••••••••" 
+                />
+              </div>
+              
+              <div>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      <span>Logowanie...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🔑</span>
+                      <span>Zaloguj się</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+            
+            <div className="text-center pt-4 border-t border-gray-200">
+              <p className="text-sm text-gray-600">
+                Nie masz konta?{' '}
+                <RouterLink 
+                  to="/register" 
+                  className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+                >
+                  Zarejestruj się
+                </RouterLink>
+              </p>
             </div>
-            <div>
-              <button type="submit" disabled={isSubmitting}
-                className="w-full flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
-                {isSubmitting ? 'Logowanie...' : 'Zaloguj się'}
-              </button>
-            </div>
-          </form>
-          <p className="mt-8 text-sm text-center text-gray-600">
-            Nie masz jeszcze konta?{' '}
-            <RouterLink to="/register" className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline">
-              Zarejestruj się
-            </RouterLink>
-          </p>
+          </div>
         </div>
       </div>
     );

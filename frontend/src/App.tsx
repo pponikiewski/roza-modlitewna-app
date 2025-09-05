@@ -27,113 +27,129 @@ const Navigation: React.FC = React.memo(() => {
   const isAdmin = user.role === UserRoles.ADMIN;
 
   return (
-    <nav className="bg-indigo-700 text-white shadow-md sticky top-0 z-50 flex-shrink-0">
-      <div className="container mx-auto px-4 py-3">
+    <nav className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white shadow-lg sticky top-0 z-50 flex-shrink-0">
+      <div className="container mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
           <RouterLink 
             to="/dashboard" 
-            className="text-lg sm:text-xl font-semibold hover:text-indigo-200 transition-colors"
+            className="text-xl sm:text-2xl font-bold hover:text-indigo-200 transition-colors flex items-center space-x-2"
           >
-            🌹 Róża Modlitewna
+            <span className="text-2xl">🌹</span>
+            <span className="bg-gradient-to-r from-white to-indigo-100 bg-clip-text text-transparent">
+              Róża Modlitewna
+            </span>
           </RouterLink>
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1">
             <RouterLink 
               to="/dashboard" 
-              className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors text-sm font-medium"
+              className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
             >
-              Panel
+              <span>🏠</span>
+              <span>Panel</span>
             </RouterLink>
             
             <RouterLink 
               to="/my-intentions" 
-              className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors text-sm font-medium"
+              className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
             >
-              Intencje
+              <span>🙏</span>
+              <span>Intencje</span>
             </RouterLink>
             
             <RouterLink 
               to="/profile" 
-              className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors text-sm font-medium"
+              className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
             >
-              Profil
+              <span>👤</span>
+              <span>Profil</span>
             </RouterLink>
             
             {isZelatorOrAdmin && (
               <RouterLink 
                 to="/zelator-dashboard" 
-                className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors text-sm font-medium"
+                className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
               >
-                Zelator
+                <span>⭐</span>
+                <span>Zelator</span>
               </RouterLink>
             )}
             
             {isAdmin && (
               <RouterLink 
                 to="/admin-panel" 
-                className="px-3 py-2 rounded-md hover:bg-indigo-600 transition-colors text-sm font-medium"
+                className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
               >
-                Admin
+                <span>⚙️</span>
+                <span>Admin</span>
               </RouterLink>
             )}
             
             <button
               onClick={logout}
-              className="ml-2 px-3 py-2 rounded-md bg-red-500 hover:bg-red-600 transition-colors text-sm font-medium"
+              className="ml-3 px-4 py-2 rounded-lg bg-red-500/90 hover:bg-red-600 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1 shadow-md"
               title={`Wyloguj ${user.email}`}
             >
-              Wyloguj
+              <span>🚪</span>
+              <span>Wyloguj</span>
             </button>
           </div>
 
           {/* Mobile Navigation */}
           <div className="md:hidden">
             <details className="relative">
-              <summary className="cursor-pointer p-2 rounded-md hover:bg-indigo-600 transition-colors list-none">
+              <summary className="cursor-pointer p-3 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 list-none">
                 <span className="text-xl">☰</span>
               </summary>
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+              <div className="absolute right-0 mt-2 w-56 bg-white/95 backdrop-blur-md rounded-xl shadow-xl py-2 z-50 border border-white/20">
                 <RouterLink 
                   to="/dashboard" 
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
                 >
-                  🏠 Panel
+                  <span>🏠</span>
+                  <span>Panel</span>
                 </RouterLink>
                 <RouterLink 
                   to="/my-intentions" 
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
                 >
-                  🙏 Intencje
+                  <span>🙏</span>
+                  <span>Intencje</span>
                 </RouterLink>
                 <RouterLink 
                   to="/profile" 
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
                 >
-                  👤 Profil
+                  <span>👤</span>
+                  <span>Profil</span>
                 </RouterLink>
                 {isZelatorOrAdmin && (
                   <RouterLink 
                     to="/zelator-dashboard" 
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
                   >
-                    ⭐ Zelator
+                    <span>⭐</span>
+                    <span>Zelator</span>
                   </RouterLink>
                 )}
                 {isAdmin && (
                   <RouterLink 
                     to="/admin-panel" 
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
                   >
-                    ⚙️ Admin
+                    <span>⚙️</span>
+                    <span>Admin</span>
                   </RouterLink>
                 )}
                 
+                <div className="border-t border-gray-200 my-2"></div>
                 <button
                   onClick={logout}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                  className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 transition-colors"
                 >
-                  🚪 Wyloguj
+                  <span>🚪</span>
+                  <span>Wyloguj</span>
                 </button>
               </div>
             </details>
@@ -147,40 +163,74 @@ const Navigation: React.FC = React.memo(() => {
 // Wydzielony komponent loading spinner
 const LoadingSpinner: React.FC<{ message?: string }> = React.memo(({ message = "Ładowanie..." }) => (
   <div className="flex flex-grow items-center justify-center min-h-[50vh]">
-    <div className="text-center space-y-4">
-      <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent mx-auto"></div>
-      <span className="text-gray-700 text-sm sm:text-base">{message}</span>
+    <div className="text-center space-y-6 p-8">
+      <div className="relative">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div>
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-400 to-purple-500 opacity-20 animate-pulse"></div>
+      </div>
+      <div className="space-y-2">
+        <p className="text-gray-700 text-base font-medium">{message}</p>
+        <div className="flex justify-center space-x-1">
+          <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
+          <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+          <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+        </div>
+      </div>
     </div>
   </div>
 ));
 
 // Wydzielony komponent błędu uprawnień
 const UnauthorizedAccess: React.FC = () => (
-  <div className="p-8 text-center flex-grow flex flex-col justify-center items-center bg-gray-100">
-    <h1 className="text-3xl font-bold text-red-600 mb-4">Brak Uprawnień</h1>
-    <p className="text-gray-700 mb-6">
-      Przepraszamy, nie masz wystarczających uprawnień, aby wyświetlić tę stronę.
-    </p>
-    <RouterLink 
-      to="/dashboard" 
-      className="px-6 py-3 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-    >
-      Wróć do Panelu
-    </RouterLink>
+  <div className="p-8 text-center flex-grow flex flex-col justify-center items-center min-h-[60vh]">
+    <div className="max-w-md mx-auto">
+      <div className="mb-6">
+        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-100 to-rose-200 rounded-full flex items-center justify-center mb-4">
+          <span className="text-3xl">🚫</span>
+        </div>
+      </div>
+      <h1 className="text-3xl font-bold bg-gradient-to-r from-red-600 to-rose-600 bg-clip-text text-transparent mb-4">
+        Brak Uprawnień
+      </h1>
+      <p className="text-gray-600 mb-8 leading-relaxed">
+        Przepraszamy, nie masz wystarczających uprawnień, aby wyświetlić tę stronę.
+        Skontaktuj się z administratorem, jeśli uważasz, że to błąd.
+      </p>
+      <RouterLink 
+        to="/dashboard" 
+        className="btn-primary inline-flex items-center space-x-2"
+      >
+        <span>🏠</span>
+        <span>Wróć do Panelu</span>
+      </RouterLink>
+    </div>
   </div>
 );
 
 // Wydzielony komponent 404
 const NotFoundPage: React.FC = () => (
-  <div className="flex flex-grow flex-col items-center justify-center py-10">
-    <h1 className="text-6xl font-bold text-red-500 mb-4">404</h1>
-    <p className="text-2xl text-gray-700 mb-6">Strona nie została znaleziona.</p>
-    <RouterLink 
-      to="/" 
-      className="px-6 py-3 text-lg font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
-    >
-      Wróć na stronę główną
-    </RouterLink>
+  <div className="flex flex-grow flex-col items-center justify-center py-10 min-h-[60vh]">
+    <div className="text-center max-w-md mx-auto">
+      <div className="mb-6">
+        <div className="w-24 h-24 mx-auto bg-gradient-to-br from-amber-100 to-orange-200 rounded-full flex items-center justify-center mb-4">
+          <span className="text-4xl">🔍</span>
+        </div>
+      </div>
+      <h1 className="text-6xl font-bold bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent mb-4">
+        404
+      </h1>
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Strona nie została znaleziona</h2>
+      <p className="text-gray-600 mb-8 leading-relaxed">
+        Przepraszamy, ale strona, której szukasz, nie istnieje lub została przeniesiona.
+      </p>
+      <RouterLink 
+        to="/" 
+        className="btn-primary inline-flex items-center space-x-2"
+      >
+        <span>🏠</span>
+        <span>Wróć na stronę główną</span>
+      </RouterLink>
+    </div>
   </div>
 );
 
@@ -213,12 +263,23 @@ function App() {
   // Loading screen dla pierwszego ładowania aplikacji
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-2 border-indigo-600 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-xl font-medium text-gray-700">
-            🌹 Ładowanie Róży Modlitewnej...
-          </p>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="text-center p-8">
+          <div className="relative mb-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div>
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-400 to-purple-500 opacity-20 animate-pulse"></div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              🌹 Róża Modlitewna
+            </p>
+            <p className="text-gray-600">Ładowanie aplikacji...</p>
+            <div className="flex justify-center space-x-1 mt-4">
+              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -226,12 +287,16 @@ function App() {
 
   return (
     <>
-      <div className="flex flex-col min-h-screen bg-gray-50">
+      <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30">
         <Navigation />
         
-        <main className="flex-1">
-          <Suspense fallback={<LoadingSpinner message="Ładowanie strony..." />}>
-            <Routes>
+        <main className="flex-1 relative overflow-hidden">
+          {/* Background pattern */}
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27 width=%2732%27 height=%2732%27 fill=%27none%27 stroke=%27rgb(148 163 184 / 0.05)%27%3e%3cpath d=%27m0 .5 32 32M32 .5 0 32%27/%3e%3c/svg%3e')] opacity-30"></div>
+          
+          <div className="relative z-10 h-full overflow-y-auto">
+            <Suspense fallback={<LoadingSpinner message="Ładowanie strony..." />}>
+              <Routes>
               {/* Optimized redirects */}
               <Route 
                 path="/" 
@@ -297,6 +362,7 @@ function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
+          </div>
         </main>
       </div>
       
@@ -304,10 +370,17 @@ function App() {
         richColors 
         closeButton 
         position="top-right"
-        duration={3000}
+        duration={4000}
         toastOptions={{
-          style: { fontSize: '14px' }
+          style: { 
+            fontSize: '14px',
+            borderRadius: '12px',
+            padding: '16px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+          },
+          className: 'backdrop-blur-sm',
         }}
+        theme="light"
       />
     </>
   );
