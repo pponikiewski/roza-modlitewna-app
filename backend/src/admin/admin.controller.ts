@@ -11,8 +11,11 @@ import {
   findRoseById,
   validateZelator,
   validateUserDeletion,
-  logAdminAction
-} from './admin.helpers';
+  logUserAction,
+  sendNotFoundError,
+  sendBadRequestError,
+  sendSuccessResponse
+} from '../shared/common.helpers';
 
 const ALLOWED_ROLES_TO_ASSIGN: UserRole[] = [UserRole.MEMBER, UserRole.ZELATOR];
 
@@ -23,7 +26,7 @@ export const updateUserRole = async (req: AuthenticatedRequest, res: Response, n
     const { userIdToUpdate } = req.params;
     const { newRole } = req.body;
     
-    logAdminAction('updateUserRole', req.user!.email, { userIdToUpdate, newRole });
+    logUserAction('updateUserRole', req.user!.email, { userIdToUpdate, newRole });
 
     const roleValidation = validateUserRole(newRole, ALLOWED_ROLES_TO_ASSIGN);
     if (!roleValidation.isValid) {
@@ -69,7 +72,7 @@ export const createRose = async (req: AuthenticatedRequest, res: Response, next:
     if (!validateAdminPermissions(req, res)) return;
     
     const { name, description, zelatorId } = req.body;
-    logAdminAction('createRose', req.user!.email, { name, zelatorId });
+    logUserAction('createRose', req.user!.email, { name, zelatorId });
 
     if (!name || !zelatorId) {
       res.status(400).json({ error: 'Nazwa Róży i ID Zelatora są wymagane.' });
@@ -99,7 +102,7 @@ export const listRoses = async (req: AuthenticatedRequest, res: Response, next: 
   try {
     if (!validateAdminPermissions(req, res)) return;
     
-    logAdminAction('listRoses', req.user!.email);
+    logUserAction('listRoses', req.user!.email);
 
     const roses = await prisma.rose.findMany({
       include: {
@@ -121,7 +124,7 @@ export const triggerMysteryAssignment = async (req: AuthenticatedRequest, res: R
   try {
     if (!validateAdminPermissions(req, res)) return;
     
-    logAdminAction('triggerMysteryAssignment', req.user!.email);
+    logUserAction('triggerMysteryAssignment', req.user!.email);
 
     assignMysteriesToAllRoses().catch(err => {
       console.error("Błąd podczas asynchronicznego wywołania assignMysteriesToAllRoses:", err);
@@ -139,7 +142,7 @@ export const getRoseDetails = async (req: AuthenticatedRequest, res: Response, n
     const { roseId } = req.params;
     const requestingUser = req.user!;
     
-    logAdminAction('getRoseDetails', requestingUser.email, { roseId });
+    logUserAction('getRoseDetails', requestingUser.email, { roseId });
 
     const rose = await findRoseById(roseId);
     if (!rose) {
@@ -168,7 +171,7 @@ export const updateRoseDetails = async (req: AuthenticatedRequest, res: Response
     const { roseId } = req.params;
     const { name, description, zelatorId } = req.body;
     
-    logAdminAction('updateRoseDetails', req.user!.email, { roseId, name, zelatorId });
+    logUserAction('updateRoseDetails', req.user!.email, { roseId, name, zelatorId });
 
     // Walidacja nazwy
     if (typeof name === 'string' && name.trim() === '') {
@@ -229,7 +232,7 @@ export const triggerMysteryAssignmentForSpecificRose = async (req: Authenticated
     if (!validateAdminPermissions(req, res)) return;
     
     const { roseId } = req.params;
-    logAdminAction('triggerMysteryAssignmentForSpecificRose', req.user!.email, { roseId });
+    logUserAction('triggerMysteryAssignmentForSpecificRose', req.user!.email, { roseId });
 
     const roseExists = await findRoseById(roseId);
     if (!roseExists) {
@@ -255,7 +258,7 @@ export const deleteRose = async (req: AuthenticatedRequest, res: Response, next:
     if (!validateAdminPermissions(req, res)) return;
     
     const { roseId } = req.params;
-    logAdminAction('deleteRose', req.user!.email, { roseId });
+    logUserAction('deleteRose', req.user!.email, { roseId });
 
     const existingRose = await findRoseById(roseId);
     if (!existingRose) {
@@ -278,7 +281,7 @@ export const deleteUserByAdmin = async (req: AuthenticatedRequest, res: Response
     if (!validateAdminPermissions(req, res)) return;
     
     const { userIdToDelete } = req.params;
-    logAdminAction('deleteUserByAdmin', req.user!.email, { userIdToDelete });
+    logUserAction('deleteUserByAdmin', req.user!.email, { userIdToDelete });
 
     const userToDelete = await findUserById(userIdToDelete);
     if (!userToDelete) {
