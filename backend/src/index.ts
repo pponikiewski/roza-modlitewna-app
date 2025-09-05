@@ -2,6 +2,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import compression from 'compression';
 import prisma from './db';
 import authRoutes from './auth/auth.routes';
 import adminRoutes from './admin/admin.routes';
@@ -20,6 +21,18 @@ dotenv.config();
 
 const app: Express = express();
 const port = process.env.PORT || 3001;
+
+// --- Kompresja odpowiedzi HTTP ---
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+  level: 6, // Poziom kompresji (1-9, 6 to dobry balans)
+  threshold: 1024 // Kompresuj tylko odpowiedzi większe niż 1KB
+}));
 
 // --- Konfiguracja CORS ---
 const allowedOrigins = [

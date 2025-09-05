@@ -18,9 +18,11 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <link rel="manifest" href="/manifest.json" />
     
-    <!-- Preconnect for performance -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- DNS prefetch dla API calls -->
+    <link rel="dns-prefetch" href="//localhost:3001" />
+    
+    <!-- Preload krytycznych zasobów -->
+    <link rel="modulepreload" href="/src/main.tsx" />
     
     <title>Róża Modlitewna</title>
   </head>
