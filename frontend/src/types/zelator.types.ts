@@ -21,6 +21,16 @@ export interface BasicUserInfo {
   role: UserRole; // Dodajemy rolę, może się przydać do wyświetlania
 }
 
+// Typ dla dostępnych użytkowników (nie należących do żadnej róży)
+// Odpowiedź z GET /zelator/available-users
+export interface AvailableUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  role: UserRole;
+  createdAt: string;
+}
+
 // Typ dla elementu listy Róż zarządzanych przez Zelatora
 // (odpowiedź z GET /zelator/my-roses)
 export interface ManagedRose {

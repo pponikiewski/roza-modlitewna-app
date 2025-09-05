@@ -196,7 +196,7 @@ const AdminUsersPage: React.FC = () => {
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) {
-      return <span className="text-gray-400">↕️</span>;
+      return <span className="text-gray-400">↕</span>;
     }
     return <span className="text-blue-600">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
   };

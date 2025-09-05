@@ -102,6 +102,19 @@ roza-modlitewna-app/
 │   │   └── utils/         # Funkcje pomocnicze
 │   └── package.json
 ├── docs/                  # Dokumentacja projektu
+├── tests/                 # Kompleksowy zestaw testów
+│   ├── backend/              # Testy backendu
+│   │   ├── auth.test.js         # Testy autentykacji (JS)
+│   │   └── api.test.ts          # Testy API endpoints (TS)
+│   ├── frontend/             # Testy frontendu
+│   │   └── components.test.ts   # Testy komponentów React
+│   ├── integration/          # Testy integracyjne
+│   │   └── system.test.ts       # Testy całego systemu
+│   ├── performance/          # Testy wydajności
+│   │   └── performance.test.ts  # Testy obciążeniowe
+│   ├── package.json          # Konfiguracja testów
+│   ├── README.md             # Dokumentacja testów
+│   └── run-tests.js          # Runner testów
 └── README.md             # Ten plik
 ```
 
@@ -118,6 +131,38 @@ roza-modlitewna-app/
 - `npm run build` - Budowanie dla produkcji
 - `npm run preview` - Podgląd buildu produkcyjnego
 - `npm run lint` - Sprawdzenie kodu ESLintem
+
+### Testy
+- `cd tests && node test-overview.js` - Przegląd dostępnych testów
+- `cd tests && node backend/auth.test.js` - Testy autentykacji
+- `cd tests && node run-tests.js` - Uruchomienie wszystkich testów
+- `cd tests && npm test` - Uruchomienie testów z Jest (po instalacji)
+
+## 🧪 Testowanie
+
+Projekt zawiera kompleksowy zestaw testów obejmujący:
+
+### Backend Tests
+- **Autentykacja** (8 testów): Rejestracja, logowanie, walidacja
+- **API Endpoints** (17 testów): REST API, autoryzacja, obsługa błędów
+
+### Frontend Tests  
+- **Komponenty React** (7 testów): State management, formularze, lifecycle
+
+### Integration Tests
+- **System** (7 testów): End-to-end workflows, integralność danych
+
+### Performance Tests
+- **Wydajność** (15 testów): Czasy odpowiedzi, zużycie pamięci, testy obciążeniowe
+
+**Szybki start z testami:**
+```bash
+cd tests
+node test-overview.js    # Przegląd testów
+node backend/auth.test.js # Uruchom testy autentykacji
+```
+
+Więcej informacji w [`tests/README.md`](tests/README.md)
 
 ## 🔑 Zmienne Środowiskowe
 

@@ -39,7 +39,7 @@ const LoginPage: React.FC = () => {
           {/* Logo/Header */}
           <div className="text-center mb-8">
             <div className="w-20 h-20 mx-auto bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
-              <span className="text-4xl">🌹</span>
+              <span className="text-4xl text-white">R</span>
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Róża Modlitewna</h1>
             <p className="text-indigo-200">Zaloguj się do swojego konta</p>
@@ -93,10 +93,7 @@ const LoginPage: React.FC = () => {
                       <span>Logowanie...</span>
                     </>
                   ) : (
-                    <>
-                      <span>🔑</span>
-                      <span>Zaloguj się</span>
-                    </>
+                    <span>Zaloguj się</span>
                   )}
                 </button>
               </div>

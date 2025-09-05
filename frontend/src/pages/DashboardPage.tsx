@@ -123,7 +123,7 @@ const DashboardPage: React.FC = () => {
         <div className="card p-8 bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-100">
             <div className="flex items-center space-x-4">
                 <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-2xl text-white">👤</span>
+                    <span className="text-2xl text-white font-bold">U</span>
                 </div>
                 <div>
                     <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-700 to-purple-700 bg-clip-text text-transparent mb-2">
@@ -148,7 +148,6 @@ const DashboardPage: React.FC = () => {
                         <div className="flex items-start justify-between">
                             <div className="flex-1">
                                 <h2 className="text-2xl font-bold text-gray-800 mb-2 flex items-center space-x-2">
-                                    <span>🌹</span>
                                     <span>{membership.rose.name}</span>
                                 </h2>
                                 {membership.rose.description && (
@@ -167,7 +166,6 @@ const DashboardPage: React.FC = () => {
                     {membership.currentMainIntentionForRose ? (
                     <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-400 rounded-r-lg">
                         <h4 className="text-sm font-semibold text-amber-800 mb-2 flex items-center space-x-1">
-                            <span>✨</span>
                             <span>Główna Intencja tej Róży (ten miesiąc):</span>
                         </h4>
                         <p className="text-amber-700 text-sm whitespace-pre-wrap leading-relaxed">
@@ -175,7 +173,6 @@ const DashboardPage: React.FC = () => {
                         </p>
                         {membership.currentMainIntentionForRose.author && (
                             <p className="text-xs text-amber-600 mt-2 flex items-center space-x-1">
-                                <span>👤</span>
                                 <span>Ustawiona przez: {membership.currentMainIntentionForRose.author.name || membership.currentMainIntentionForRose.author.email}</span>
                             </p>
                         )}
@@ -217,7 +214,6 @@ const DashboardPage: React.FC = () => {
                 <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                     <div className="text-center mb-4">
                         <h3 className="text-xl font-bold text-blue-800 mb-1 flex items-center justify-center space-x-2">
-                            <span>📿</span>
                             <span>{membership.currentMysteryFullDetails.name}</span>
                         </h3>
                         <span className="badge badge-info">{membership.currentMysteryFullDetails.group}</span>
@@ -234,7 +230,6 @@ const DashboardPage: React.FC = () => {
 
                     <div className="bg-white/70 backdrop-blur-sm p-4 rounded-lg mb-4 border border-blue-100">
                         <h4 className="font-semibold text-blue-800 mb-2 text-sm flex items-center space-x-1">
-                            <span>💭</span>
                             <span>Rozważanie:</span>
                         </h4>
                         <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">{membership.currentMysteryFullDetails.contemplation}</p>
@@ -242,7 +237,7 @@ const DashboardPage: React.FC = () => {
 
                     {membership.mysteryConfirmedAt ? (
                         <div className="badge badge-success p-3 w-full sm:w-auto text-center">
-                            ✅ Potwierdzono: {new Date(membership.mysteryConfirmedAt).toLocaleString('pl-PL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            Potwierdzono: {new Date(membership.mysteryConfirmedAt).toLocaleString('pl-PL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </div>
                     ) : (
                         <button
@@ -257,7 +252,6 @@ const DashboardPage: React.FC = () => {
                                 </span>
                             ) : (
                                 <span className="flex items-center space-x-2">
-                                    <span>✅</span>
                                     <span>Potwierdzam zapoznanie się</span>
                                 </span>
                             )}
@@ -282,12 +276,23 @@ const DashboardPage: React.FC = () => {
                                 <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
                                     {mysteryHistory.map(entry => (
                                     <div key={entry.id} className="p-2.5 bg-gray-100 rounded-md text-xs">
-                                        <p className="font-medium text-gray-800">{entry.mysteryDetails?.name || `Tajemnica ID: ${entry.mystery}`}</p>
-                                        <p className="text-gray-500">{entry.mysteryDetails?.group}</p>
-                                        <p className="text-gray-500">
-                                            Przydzielono: {entry.assignedMonth}/{entry.assignedYear} 
-                                            <span className="text-gray-400"> ({new Date(entry.assignedAt).toLocaleDateString('pl-PL')})</span>
-                                        </p>
+                                        <div className="flex items-start space-x-3">
+                                            {entry.mysteryDetails?.imageUrl && (
+                                            <img 
+                                                src={entry.mysteryDetails.imageUrl} 
+                                                alt={`Grafika dla ${entry.mysteryDetails.name}`} 
+                                                className="w-12 h-12 rounded object-cover flex-shrink-0" 
+                                            />
+                                            )}
+                                            <div className="flex-grow">
+                                                <p className="font-medium text-gray-800">{entry.mysteryDetails?.name || `Tajemnica ID: ${entry.mystery}`}</p>
+                                                <p className="text-gray-500">{entry.mysteryDetails?.group}</p>
+                                                <p className="text-gray-500">
+                                                    Przydzielono: {entry.assignedMonth}/{entry.assignedYear} 
+                                                    <span className="text-gray-400"> ({new Date(entry.assignedAt).toLocaleDateString('pl-PL')})</span>
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
                                     ))}
                                 </div>
@@ -306,7 +311,7 @@ const DashboardPage: React.FC = () => {
             !isLoadingMemberships && (
                 <div className="card p-8 text-center">
                     <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                        <span className="text-2xl">🌹</span>
+                        <span className="text-2xl font-bold text-gray-600">R</span>
                     </div>
                     <h3 className="text-xl font-semibold text-gray-700 mb-2">Nie należysz jeszcze do żadnej Róży</h3>
                     <p className="text-gray-500">Skontaktuj się z Zelatorem lub Administratorem, aby dołączyć do Róży.</p>

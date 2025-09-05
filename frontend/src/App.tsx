@@ -34,7 +34,6 @@ const Navigation: React.FC = React.memo(() => {
             to="/dashboard" 
             className="text-xl sm:text-2xl font-bold hover:text-indigo-200 transition-colors flex items-center space-x-2"
           >
-            <span className="text-2xl">🌹</span>
             <span className="bg-gradient-to-r from-white to-indigo-100 bg-clip-text text-transparent">
               Róża Modlitewna
             </span>
@@ -46,7 +45,6 @@ const Navigation: React.FC = React.memo(() => {
               to="/dashboard" 
               className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
             >
-              <span>🏠</span>
               <span>Panel</span>
             </RouterLink>
             
@@ -54,7 +52,6 @@ const Navigation: React.FC = React.memo(() => {
               to="/my-intentions" 
               className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
             >
-              <span>🙏</span>
               <span>Intencje</span>
             </RouterLink>
             
@@ -63,7 +60,6 @@ const Navigation: React.FC = React.memo(() => {
                 to="/zelator-dashboard" 
                 className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
               >
-                <span>⭐</span>
                 <span>Zelator</span>
               </RouterLink>
             )}
@@ -73,7 +69,6 @@ const Navigation: React.FC = React.memo(() => {
                 to="/admin-panel" 
                 className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
               >
-                <span>⚙️</span>
                 <span>Admin</span>
               </RouterLink>
             )}
@@ -82,7 +77,6 @@ const Navigation: React.FC = React.memo(() => {
               to="/profile" 
               className="px-4 py-2 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1"
             >
-              <span>👤</span>
               <span>Profil</span>
             </RouterLink>
             
@@ -91,7 +85,6 @@ const Navigation: React.FC = React.memo(() => {
               className="ml-3 px-4 py-2 rounded-lg bg-red-500/90 hover:bg-red-600 backdrop-blur-sm transition-all duration-200 text-sm font-medium flex items-center space-x-1 shadow-md"
               title={`Wyloguj ${user.email}`}
             >
-              <span>🚪</span>
               <span>Wyloguj</span>
             </button>
           </div>
@@ -100,21 +93,19 @@ const Navigation: React.FC = React.memo(() => {
           <div className="md:hidden">
             <details className="relative">
               <summary className="cursor-pointer p-3 rounded-lg hover:bg-white/10 backdrop-blur-sm transition-all duration-200 list-none">
-                <span className="text-xl">☰</span>
+                <span className="text-xl">≡</span>
               </summary>
               <div className="absolute right-0 mt-2 w-56 bg-white/95 backdrop-blur-md rounded-xl shadow-xl py-2 z-50 border border-white/20">
                 <RouterLink 
                   to="/dashboard" 
                   className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
                 >
-                  <span>🏠</span>
                   <span>Panel</span>
                 </RouterLink>
                 <RouterLink 
                   to="/my-intentions" 
                   className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
                 >
-                  <span>🙏</span>
                   <span>Intencje</span>
                 </RouterLink>
                 {isZelatorOrAdmin && (
@@ -122,7 +113,6 @@ const Navigation: React.FC = React.memo(() => {
                     to="/zelator-dashboard" 
                     className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
                   >
-                    <span>⭐</span>
                     <span>Zelator</span>
                   </RouterLink>
                 )}
@@ -131,7 +121,6 @@ const Navigation: React.FC = React.memo(() => {
                     to="/admin-panel" 
                     className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
                   >
-                    <span>⚙️</span>
                     <span>Admin</span>
                   </RouterLink>
                 )}
@@ -139,7 +128,6 @@ const Navigation: React.FC = React.memo(() => {
                   to="/profile" 
                   className="block px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 flex items-center space-x-2 transition-colors"
                 >
-                  <span>👤</span>
                   <span>Profil</span>
                 </RouterLink>
                 
@@ -148,7 +136,6 @@ const Navigation: React.FC = React.memo(() => {
                   onClick={logout}
                   className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 transition-colors"
                 >
-                  <span>🚪</span>
                   <span>Wyloguj</span>
                 </button>
               </div>
@@ -176,7 +163,7 @@ const UnauthorizedAccess: React.FC = () => (
     <div className="max-w-md mx-auto">
       <div className="mb-6">
         <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-100 to-rose-200 rounded-full flex items-center justify-center mb-4">
-          <span className="text-3xl">🚫</span>
+          <span className="text-3xl font-bold text-red-600">!</span>
         </div>
       </div>
       <h1 className="text-3xl font-bold bg-gradient-to-r from-red-600 to-rose-600 bg-clip-text text-transparent mb-4">
@@ -190,7 +177,6 @@ const UnauthorizedAccess: React.FC = () => (
         to="/dashboard" 
         className="btn-primary inline-flex items-center space-x-2"
       >
-        <span>🏠</span>
         <span>Wróć do Panelu</span>
       </RouterLink>
     </div>
@@ -203,7 +189,7 @@ const NotFoundPage: React.FC = () => (
     <div className="text-center max-w-md mx-auto">
       <div className="mb-6">
         <div className="w-24 h-24 mx-auto bg-gradient-to-br from-amber-100 to-orange-200 rounded-full flex items-center justify-center mb-4">
-          <span className="text-4xl">🔍</span>
+          <span className="text-4xl font-bold text-amber-600">?</span>
         </div>
       </div>
       <h1 className="text-6xl font-bold bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent mb-4">
@@ -217,7 +203,6 @@ const NotFoundPage: React.FC = () => (
         to="/" 
         className="btn-primary inline-flex items-center space-x-2"
       >
-        <span>🏠</span>
         <span>Wróć na stronę główną</span>
       </RouterLink>
     </div>
@@ -257,7 +242,7 @@ function App() {
         <div className="text-center p-8">
           <div className="w-12 h-12 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            🌹 Róża Modlitewna
+            Róża Modlitewna
           </p>
           <p className="text-gray-600 mt-2">Ładowanie aplikacji...</p>
         </div>

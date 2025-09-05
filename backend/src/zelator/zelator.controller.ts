@@ -114,6 +114,58 @@ export const listRoseMembers = async (req: AuthenticatedRequest, res: Response, 
   }
 };
 
+export const getAvailableUsers = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!validateUser(req, res)) return;
+    
+    const requestingUser = req.user!;
+    
+    logUserAction('getAvailableUsers', requestingUser.email, {});
+
+    // Sprawdź czy użytkownik ma uprawnienia (Admin lub Zelator)
+    if (requestingUser.role !== UserRole.ADMIN && requestingUser.role !== UserRole.ZELATOR) {
+      return sendForbiddenError(res, 'Brak odpowiednich uprawnień do wykonania tej akcji.');
+    }
+
+    // Pobierz użytkowników, którzy nie są w żadnej róży (nie mają RoseMembership)
+    const availableUsers = await prisma.user.findMany({
+      where: {
+        AND: [
+          {
+            // Tylko użytkownicy z rolą MEMBER lub ZELATOR
+            role: {
+              in: [UserRole.MEMBER, UserRole.ZELATOR]
+            }
+          },
+          {
+            // Nie mają żadnego członkostwa w róży
+            roseMemberships: {
+              none: {}
+            }
+          }
+        ]
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true
+      },
+      orderBy: [
+        { name: 'asc' },
+        { email: 'asc' }
+      ]
+    });
+
+    console.log(`[getAvailableUsers] Znaleziono ${availableUsers.length} dostępnych użytkowników.`);
+    res.json(availableUsers);
+  } catch (error) {
+    console.error('[getAvailableUsers] Błąd:', error);
+    next(error);
+  }
+};
+
 export const getMyManagedRoses = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     if (!validateUser(req, res)) return;

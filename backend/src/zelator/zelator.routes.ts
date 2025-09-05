@@ -7,7 +7,8 @@ import {
     removeMemberFromRose,
     setOrUpdateMainRoseIntention,
     getCurrentMainRoseIntention,
-    listMainIntentionsForRose // Dodany import dla nowej funkcji kontrolera
+    listMainIntentionsForRose, // Dodany import dla nowej funkcji kontrolera
+    getAvailableUsers // Nowy import dla funkcji pobierania dostępnych użytkowników
 } from './zelator.controller';
 import { authenticateToken, authorizeRole } from '../auth/auth.middleware';
 import { UserRole } from '../types/user.types'; // Upewnij się, że ten plik i enum/typ istnieją
@@ -20,6 +21,14 @@ router.get(
   authenticateToken,
   authorizeRole([UserRole.ZELATOR, UserRole.ADMIN]),
   getMyManagedRoses
+);
+
+// --- Pobieranie dostępnych użytkowników (nie należących do żadnej róży) ---
+router.get(
+  '/available-users',
+  authenticateToken,
+  authorizeRole([UserRole.ZELATOR, UserRole.ADMIN]),
+  getAvailableUsers
 );
 
 // --- Zarządzanie Członkami Konkretnej Róży ---
