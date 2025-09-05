@@ -47,11 +47,15 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  if (!user) return <p>Ładowanie danych profilu...</p>;
+  if (!user) return (
+    <div className="h-full bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
+      <p className="text-xl text-gray-700">Ładowanie danych profilu...</p>
+    </div>
+  );
 
   return (
-    <div className="p-4 md:p-8 bg-slate-100">
-      <div className="max-w-3xl mx-auto space-y-8">
+    <div className="h-full bg-gradient-to-br from-blue-50 via-white to-indigo-50 overflow-y-auto">
+      <div className="max-w-3xl mx-auto space-y-8 p-4 md:p-8">
         <h1 className="text-3xl font-bold text-gray-800 border-b pb-4">Mój Profil</h1>
         
         <section className="bg-white p-6 rounded-lg shadow-xl">

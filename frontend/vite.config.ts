@@ -29,7 +29,8 @@ export default defineConfig({
   // Optymalizacje dev server
   server: {
     port: 3000,
-    host: true
+    host: true,
+    strictPort: true
   },
   
   // Optymalizacje dependencies

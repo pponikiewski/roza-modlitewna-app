@@ -10,14 +10,55 @@
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    height: 100%;
     overflow-x: hidden;
   }
   
   body {
     @apply antialiased;
     background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-    min-height: 100vh;
+    height: 100%;
     overflow-x: hidden;
+    overflow-y: auto;
+  }
+  
+  #root {
+    height: 100%;
+  }
+  
+  /* Main app container should not exceed viewport height */
+  .app-container {
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  .content-area {
+    height: calc(100vh - 80px); /* subtract navigation height + padding */
+    overflow-y: auto;
+  }
+  
+  /* Prevent body scroll when content fits */
+  body.no-scroll {
+    overflow: hidden;
+  }
+  
+  /* Ensure pages don't exceed viewport */
+  .page-container {
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+  }
+  
+  /* Page content should fit within available space */
+  .page-content {
+    height: 100%;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+  }
+  
+  /* Prevent min-height from forcing unnecessary scroll */
+  .content-fit {
+    height: 100%;
+    max-height: 100%;
   }
   
   /* Prevent unnecessary scrollbars */
