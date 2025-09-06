@@ -1,41 +1,12 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes" />
-    
-    <!-- SEO meta tags -->
-    <meta name="description" content="Aplikacja do zarządzania różami modlitewy - organizuj i śledź modlitwy w grupach" />
-    <meta name="keywords" content="róża modlitewna, modlitwa, religia, katolicyzm" />
-    
-    <!-- PWA meta tags -->
-    <meta name="theme-color" content="#4f46e5" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Róża Modlitewna" />
-    
-    <!-- Icons -->
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <link rel="manifest" href="/manifest.json" />
-    
-    <!-- DNS prefetch dla API calls -->
-    <link rel="dns-prefetch" href="//localhost:3001" />
-    
-    <!-- Preload krytycznych zasobów -->
-    <link rel="modulepreload" href="/src/main.tsx" />
-    
-    <title>Róża Modlitewna</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + React + TS</title>
   </head>
   <body>
-    <noscript>
-      <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; font-family: system-ui, sans-serif; padding: 2rem;">
-        <div>
-          <h1 style="color: #dc2626; margin-bottom: 1rem;">JavaScript wymagany</h1>
-          <p style="color: #374151;">Ta aplikacja wymaga włączonego JavaScript aby działać poprawnie.</p>
-        </div>
-      </div>
-    </noscript>
-    
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

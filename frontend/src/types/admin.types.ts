@@ -15,16 +15,8 @@ export interface UserAdminView {
     role: UserRole; // Używamy typu UserRole dla spójności
     createdAt: string; // Data jako string ISO
     updatedAt: string; // Data jako string ISO
-    // Informacje o przynależności do róż
-    managedRoses?: RoseMembershipInfo[]; // Róże, których użytkownik jest Zelatorem
-    memberRoses?: RoseMembershipInfo[]; // Róże, w których użytkownik jest członkiem
-}
-
-// Informacje o przynależności do róży
-export interface RoseMembershipInfo {
-    id: string;
-    name: string;
-    role?: 'ZELATOR' | 'MEMBER'; // Rola w kontekście tej konkretnej róży
+    // Można dodać inne pola, jeśli backend je zwraca i są potrzebne Adminowi,
+    // np. informacje o ostatnim logowaniu, status konta itp.
 }
 
 // --- Typy dla Zarządzania Różami ---

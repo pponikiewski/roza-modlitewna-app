@@ -114,10 +114,6 @@ dist-ssr
 .sst/
 .open-next/
 
-# Test files
-tests/
-run-all-tests.js
-
 # IDE files
 .vscode/
 .idea/

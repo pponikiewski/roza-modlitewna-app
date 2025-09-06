@@ -18,10 +18,7 @@
     "migrate:reset": "cd backend && npm run migrate:reset",
     "lint": "npm run lint:backend && npm run lint:frontend",
     "lint:backend": "cd backend && npm run lint",
-    "lint:frontend": "cd frontend && npm run lint",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "lint:frontend": "cd frontend && npm run lint"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",

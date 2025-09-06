@@ -56,7 +56,7 @@ const AdminRosesPage: React.FC = () => {
 
   const fetchAvailableZelators = useCallback(async () => {
     try {
-        const response = await apiClient.get<UserAdminView[]>('/admin/users');
+        const response = await apiClient.get<UserAdminView[]>('/users');
         const potentialZelators = response.data.filter(
             user => user.role === UserRoles.ZELATOR || user.role === UserRoles.ADMIN
         );
@@ -237,12 +237,7 @@ const AdminRosesPage: React.FC = () => {
         <h3 className="text-xl font-semibold text-gray-800 mb-4 pt-4 border-t mt-8">Lista Róż w Systemie</h3>
         
         {isLoadingRoses ? (
-           <div className="flex items-center justify-center p-8">
-             <div className="text-center space-y-4">
-               <div className="w-8 h-8 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
-               <p className="text-gray-600">Ładowanie listy Róż...</p>
-             </div>
-           </div>
+           <p className="text-gray-600 p-4">Ładowanie listy Róż...</p>
         ) : roses.length === 0 && !isLoadingRoses ? (
            <p className="p-4">Brak Róż w systemie. Stwórz pierwszą!</p>
         ) : (

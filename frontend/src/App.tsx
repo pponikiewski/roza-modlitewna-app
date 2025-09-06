@@ -5,7 +5,7 @@ import { useAuth } from "./contexts/AuthContext";
 import { UserRoles, type UserRole } from './types/user.types';
 import { Toaster } from 'sonner';
 
-// Lazy loading komponentów stron
+// Lazy loading komponentów stron z preloading hints
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/RegisterPage"));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -17,7 +17,10 @@ const AdminRosesPage = lazy(() => import('./pages/AdminRosesPage'));
 const MyIntentionsPage = lazy(() => import('./pages/MyIntentionsPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
-// Wydzielony komponent nawigacji
+// Komponenty załadowane eagerly (małe, często używane)
+// import LoadingSpinner from './components/LoadingSpinner.tsx';
+
+// Wydzielony komponent nawigacji z memo
 const Navigation: React.FC = React.memo(() => {
   const { user, logout } = useAuth();
   

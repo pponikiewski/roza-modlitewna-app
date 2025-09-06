@@ -3,29 +3,10 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,ts,jsx,tsx}", // Dodaj to
   ],
   theme: {
-    extend: {
-      // Tylko używane kolory - mniejszy CSS bundle
-      colors: {
-        primary: {
-          50: '#eef2ff',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-        }
-      }
-    },
+    extend: {},
   },
   plugins: [],
-  // Optymalizacje dla mniejszego CSS
-  corePlugins: {
-    // Wyłączenie niepotrzebnych utilities
-    ringOffsetColor: false,
-    ringOffsetWidth: false,
-    scrollSnapType: false,
-    scrollSnapAlign: false,
-    touchAction: false,
-  }
 }

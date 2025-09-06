@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom'; // Usunięto useNavigate, nie jest używany
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
-import type { RoseMembershipWithUserAndMystery, AvailableUser } from '../types/zelator.types';
+import type { RoseMembershipWithUserAndMystery } from '../types/zelator.types';
 import type { RoseListItemAdmin } from '../types/admin.types';
 import { findMysteryById } from '../utils/constants';
 import type { RoseMainIntentionData, UserIntention } from '../types/rosary.types';
@@ -22,12 +22,6 @@ const ManagedRoseDetailsPage: React.FC = () => {
   const [isAddingMember, setIsAddingMember] = useState(false);
   // const [addMemberError, setAddMemberError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
   // const [addMemberSuccess, setAddMemberSuccess] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
-
-  // Nowy state dla dostępnych użytkowników
-  const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([]);
-  const [isLoadingAvailableUsers, setIsLoadingAvailableUsers] = useState(false);
-  const [showUserSelector, setShowUserSelector] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]); // Nowy state dla multi-select
 
   const [isRemovingMember, setIsRemovingMember] = useState<string | null>(null);
   // const [removeMemberError, setRemoveMemberError] = useState<string | null>(null); // <<<< ZMIANA: Usunięto
@@ -132,110 +126,20 @@ const ManagedRoseDetailsPage: React.FC = () => {
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentRose) {
-        toast.warning("Brak danych Róży."); 
+    if (!currentRose || !userIdToAdd.trim()) {
+        toast.warning("ID użytkownika do dodania nie może być puste lub brak danych Róży."); // <<<< ZMIANA: Dodano toast
         return;
     }
-
-    // Sprawdź czy są wybrani użytkownicy lub wpisane ID
-    const usersToAdd = selectedUsers.length > 0 ? selectedUsers : (userIdToAdd.trim() ? [userIdToAdd.trim()] : []);
-    
-    if (usersToAdd.length === 0) {
-        toast.warning("Wybierz użytkowników z listy lub wpisz ID użytkownika."); 
-        return;
-    }
-
     setIsAddingMember(true);
-    
     try {
-        // Dodaj użytkowników jeden po drugim
-        const results = [];
-        for (const userId of usersToAdd) {
-            try {
-                const response = await apiClient.post(`/zelator/roses/${currentRose.id}/members`, { userIdToAdd: userId });
-                results.push({ userId, success: true, data: response.data });
-            } catch (err: any) {
-                results.push({ userId, success: false, error: err.response?.data?.error || 'Błąd' });
-            }
-        }
-        
-        // Sprawdź wyniki
-        const successful = results.filter(r => r.success);
-        const failed = results.filter(r => !r.success);
-        
-        if (successful.length > 0) {
-            toast.success(`Pomyślnie dodano ${successful.length} użytkowników do Róży.`);
-        }
-        
-        if (failed.length > 0) {
-            failed.forEach(result => {
-                toast.error(`Błąd dla użytkownika ${result.userId}: ${result.error}`);
-            });
-        }
-        
-        // Reset form
+        await apiClient.post(`/zelator/roses/${currentRose.id}/members`, { userIdToAdd });
+        toast.success(`Pomyślnie dodano użytkownika (ID: ${userIdToAdd}).`); // <<<< ZMIANA: Dodano toast
         setUserIdToAdd('');
-        setSelectedUsers([]);
-        setShowUserSelector(false);
         fetchPageData(); 
     } catch (err: any) {
-        toast.error("Wystąpił nieoczekiwany błąd podczas dodawania członków.");
+        toast.error(err.response?.data?.error || "Wystąpił błąd podczas dodawania członka."); // <<<< ZMIANA: Dodano toast
     } finally {
         setIsAddingMember(false);
-    }
-  };
-
-  // Funkcja do pobierania dostępnych użytkowników
-  const fetchAvailableUsers = async () => {
-    setIsLoadingAvailableUsers(true);
-    try {
-      const response = await apiClient.get<AvailableUser[]>('/zelator/available-users');
-      setAvailableUsers(response.data);
-    } catch (err: any) {
-      toast.error("Nie udało się pobrać listy dostępnych użytkowników.");
-      console.error('Błąd pobierania dostępnych użytkowników:', err);
-    } finally {
-      setIsLoadingAvailableUsers(false);
-    }
-  };
-
-  // Funkcja do pokazania/ukrycia selektora użytkowników
-  const toggleUserSelector = () => {
-    if (!showUserSelector && availableUsers.length === 0) {
-      fetchAvailableUsers();
-    }
-    setShowUserSelector(!showUserSelector);
-    // Reset selection when hiding
-    if (showUserSelector) {
-      setSelectedUsers([]);
-      setUserIdToAdd('');
-    }
-  };
-
-  // Funkcja do toggle użytkownika w multi-select
-  const toggleUserSelection = (userId: string) => {
-    setSelectedUsers(prev => {
-      if (prev.includes(userId)) {
-        return prev.filter(id => id !== userId);
-      } else {
-        return [...prev, userId];
-      }
-    });
-    // Clear manual input when using multi-select
-    setUserIdToAdd('');
-  };
-
-  // Funkcja do dodania wszystkich wybranych użytkowników
-  const addSelectedUsers = () => {
-    if (selectedUsers.length === 0) {
-      toast.warning("Nie wybrano żadnych użytkowników.");
-      return;
-    }
-    
-    // Trigger form submission with selected users
-    const form = document.getElementById('add-member-form') as HTMLFormElement;
-    if (form) {
-      form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
     }
   };
 
@@ -280,14 +184,7 @@ const ManagedRoseDetailsPage: React.FC = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="p-8 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
-          <div className="text-xl text-gray-700">Ładowanie danych Róży...</div>
-        </div>
-      </div>
-    );
+    return <div className="p-8 text-center text-xl">Ładowanie danych Róży...</div>;
   }
 
   // if (pageError) { // <<<< ZMIANA: Usunięto ten blok, toasty są globalne
@@ -400,142 +297,32 @@ const ManagedRoseDetailsPage: React.FC = () => {
         </section>
 
         <section className="bg-white p-6 rounded-xl shadow-xl">
-            <h3 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-3">Dodaj Nowych Członków</h3>
-            
-            <div className="space-y-4">
-              {/* Formularz z input do kliknięcia */}
-              <form id="add-member-form" onSubmit={handleAddMember} className="space-y-4">
-                <div>
-                  <label htmlFor="userIdToAdd" className="block text-sm font-medium text-gray-700 mb-1">
-                    Wybierz użytkowników do dodania
-                  </label>
-                  <div className="relative">
+            <h3 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-3">Dodaj Nowego Członka</h3>
+            {/* {addMemberError && <p className="mb-3 p-2 text-sm text-red-600 bg-red-100 rounded">{addMemberError}</p>} */} {/* <<<< ZMIANA: Usunięto */}
+            {/* {addMemberSuccess && <p className="mb-3 p-2 text-sm text-green-600 bg-green-100 rounded">{addMemberSuccess}</p>} */} {/* <<<< ZMIANA: Usunięto */}
+            <form onSubmit={handleAddMember} className="flex flex-col sm:flex-row sm:items-end gap-4">
+                <div className="flex-grow">
+                    <label htmlFor="userIdToAdd" className="block text-sm font-medium text-gray-700 mb-1">
+                        ID Użytkownika
+                    </label>
                     <input
-                      type="text"
-                      id="userIdToAdd"
-                      value={selectedUsers.length > 0 ? `Wybrano ${selectedUsers.length} użytkowników` : userIdToAdd}
-                      onChange={(e) => setUserIdToAdd(e.target.value)}
-                      onClick={toggleUserSelector}
-                      placeholder="Kliknij aby wybrać użytkowników lub wpisz ID ręcznie"
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm cursor-pointer"
-                      readOnly={selectedUsers.length > 0}
+                        type="text"
+                        id="userIdToAdd"
+                        value={userIdToAdd}
+                        onChange={(e) => setUserIdToAdd(e.target.value)}
+                        placeholder="Wklej ID użytkownika z listy systemowej"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        required
                     />
-                    {selectedUsers.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedUsers([]);
-                          setUserIdToAdd('');
-                        }}
-                        className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
                 </div>
-
-                {/* Lista dostępnych użytkowników z multi-select */}
-                {showUserSelector && (
-                  <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-gray-700">
-                        Wybierz użytkowników (możesz wybrać kilku):
-                      </h4>
-                      {selectedUsers.length > 0 && (
-                        <span className="text-sm font-medium text-indigo-600">
-                          Wybrano: {selectedUsers.length}
-                        </span>
-                      )}
-                    </div>
-                    
-                    {isLoadingAvailableUsers ? (
-                      <div className="flex items-center justify-center py-4">
-                        <div className="w-6 h-6 border-2 border-gray-300 border-t-indigo-600 rounded-full animate-spin"></div>
-                        <span className="ml-2 text-sm text-gray-600">Ładowanie użytkowników...</span>
-                      </div>
-                    ) : availableUsers.length === 0 ? (
-                      <p className="text-center text-gray-500 py-4">
-                        Brak dostępnych użytkowników. Wszyscy użytkownicy należą już do róż.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="max-h-60 overflow-y-auto space-y-2">
-                          {availableUsers.map((user) => {
-                            const isSelected = selectedUsers.includes(user.id);
-                            return (
-                              <div
-                                key={user.id}
-                                className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${
-                                  isSelected 
-                                    ? 'border-indigo-500 bg-indigo-50' 
-                                    : 'border-gray-200 bg-white hover:bg-gray-50'
-                                }`}
-                                onClick={() => toggleUserSelection(user.id)}
-                              >
-                                <div className="flex items-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => toggleUserSelection(user.id)}
-                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                                  />
-                                </div>
-                                <div className="ml-3 flex-grow">
-                                  <p className="font-medium text-gray-900">
-                                    {user.name || user.email}
-                                  </p>
-                                  <p className="text-sm text-gray-500">{user.email}</p>
-                                  <p className="text-xs text-gray-400">
-                                    Rola: {user.role} • ID: {user.id}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        
-                        {/* Przyciski akcji */}
-                        <div className="flex gap-2 pt-3 border-t">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedUsers(availableUsers.map(u => u.id))}
-                            className="flex-1 px-3 py-2 text-sm text-indigo-600 border border-indigo-200 rounded hover:bg-indigo-50"
-                          >
-                            Wybierz wszystkich
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedUsers([])}
-                            className="flex-1 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
-                          >
-                            Wyczyść
-                          </button>
-                          <button
-                            type="button"
-                            onClick={addSelectedUsers}
-                            disabled={selectedUsers.length === 0}
-                            className="flex-1 px-3 py-2 text-sm text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Dodaj ({selectedUsers.length})
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Główny przycisk dodawania */}
                 <button
-                  type="submit"
-                  disabled={isAddingMember}
-                  className="w-full px-5 py-3 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60"
+                    type="submit"
+                    disabled={isAddingMember}
+                    className="px-5 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-60 min-w-[140px] h-[42px]"
                 >
-                  {isAddingMember ? 'Dodawanie...' : 
-                   selectedUsers.length > 0 ? `Dodaj ${selectedUsers.length} członków` : 'Dodaj Członka'}
+                    {isAddingMember ? 'Dodawanie...' : 'Dodaj Członka'}
                 </button>
-              </form>
-            </div>
+            </form>
         </section>
 
         <section className="bg-white p-6 rounded-xl shadow-xl">
@@ -562,26 +349,6 @@ const ManagedRoseDetailsPage: React.FC = () => {
                                <>
                                    <p className="text-md font-semibold text-indigo-800">{member.mysteryDetails.name}</p>
                                    <p className="text-xs text-gray-500 mb-1">({member.mysteryDetails.group})</p>
-                                   
-                                   {member.mysteryDetails.imageUrl && (
-                                   <img 
-                                       src={member.mysteryDetails.imageUrl} 
-                                       alt={`Grafika dla ${member.mysteryDetails.name}`} 
-                                       className="w-full max-w-xs mx-auto h-auto rounded-lg shadow-sm mt-2 mb-2 object-contain" 
-                                       style={{maxHeight: '150px'}}
-                                   />
-                                   )}
-
-                                   {member.mysteryDetails.contemplation && (
-                                   <div className="mt-2 p-2 bg-white/80 rounded border border-indigo-200">
-                                       <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">
-                                           {member.mysteryDetails.contemplation.length > 200 
-                                               ? `${member.mysteryDetails.contemplation.substring(0, 200)}...` 
-                                               : member.mysteryDetails.contemplation
-                                           }
-                                       </p>
-                                   </div>
-                                   )}
                                </>
                            ) : member.currentAssignedMystery ? (
                                 <p className="text-sm text-orange-600 italic">Tajemnica o ID: {member.currentAssignedMystery} (oczekuje na odświeżenie)</p>

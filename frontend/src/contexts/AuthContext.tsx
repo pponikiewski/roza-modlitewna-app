@@ -1,6 +1,6 @@
 // frontend/src/contexts/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import apiClient from '../services/api';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import apiClient from '../services/api'; // Nasz klient API
 
 interface User {
   id: string;
@@ -15,73 +15,59 @@ interface AuthContextType {
   isLoading: boolean;
   login: (token: string, userData: User) => void;
   logout: () => void;
+  // Można dodać funkcję register, jeśli chcemy obsłużyć coś po rejestracji
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_TOKEN_KEY = 'authToken';
-const AUTH_USER_KEY = 'authUser';
-
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  const login = useCallback((newToken: string, userData: User) => {
-    try {
-      localStorage.setItem(AUTH_TOKEN_KEY, newToken);
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
-      setToken(newToken);
-      setUser(userData);
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-    } catch (error) {
-      console.error('Błąd podczas logowania:', error);
-    }
-  }, []);
-
-  const logout = useCallback(() => {
-    try {
-      localStorage.removeItem(AUTH_TOKEN_KEY);
-      localStorage.removeItem(AUTH_USER_KEY);
-      setToken(null);
-      setUser(null);
-      delete apiClient.defaults.headers.common['Authorization'];
-    } catch (error) {
-      console.error('Błąd podczas wylogowywania:', error);
-    }
-  }, []);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('authToken'));
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Stan ładowania przy inicjalizacji
 
   useEffect(() => {
-    const initializeAuth = () => {
+    const storedToken = localStorage.getItem('authToken');
+    const storedUser = localStorage.getItem('authUser'); // Przechowujemy też dane usera
+
+    if (storedToken && storedUser) {
+      setToken(storedToken);
       try {
-        const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
-        const storedUser = localStorage.getItem(AUTH_USER_KEY);
-
-        if (storedToken && storedUser) {
-          const parsedUser = JSON.parse(storedUser) as User;
-          setToken(storedToken);
-          setUser(parsedUser);
-          apiClient.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-        }
+        const parsedUser = JSON.parse(storedUser) as User;
+        setUser(parsedUser);
+        // Ustawiamy domyślny nagłówek dla apiClient, gdyby interceptor nie zadziałał od razu
+        // (choć interceptor powinien to obsłużyć przy pierwszym żądaniu)
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
       } catch (error) {
-        console.error("Błąd inicjalizacji autoryzacji:", error);
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        localStorage.removeItem(AUTH_USER_KEY);
-      } finally {
-        setIsLoading(false);
+        console.error("Błąd parsowania danych użytkownika z localStorage:", error);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
+        setToken(null);
+        setUser(null);
       }
-    };
-
-    initializeAuth();
+    }
+    setIsLoading(false);
   }, []);
 
-  const contextValue = React.useMemo(
-    () => ({ user, token, isLoading, login, logout }),
-    [user, token, isLoading, login, logout]
-  );
+  const login = (newToken: string, userData: User) => {
+    localStorage.setItem('authToken', newToken);
+    localStorage.setItem('authUser', JSON.stringify(userData)); // Zapisujemy dane usera
+    setToken(newToken);
+    setUser(userData);
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+  };
+
+  const logout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('authUser');
+    setToken(null);
+    setUser(null);
+    delete apiClient.defaults.headers.common['Authorization'];
+    // Tutaj można dodać przekierowanie na stronę logowania
+    // np. window.location.href = '/login';
+  };
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

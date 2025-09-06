@@ -12,32 +12,12 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
-// Helper function dla walidacji
-const validateRequiredFields = (fields: Record<string, any>, requiredFields: string[]): string | null => {
-  for (const field of requiredFields) {
-    if (!fields[field]) {
-      return `${field} jest wymagane`;
-    }
-  }
-  return null;
-};
-
-// Helper function dla responses
-const createUserResponse = (user: any) => ({
-  id: user.id,
-  email: user.email,
-  name: user.name,
-  role: user.role,
-  createdAt: user.createdAt,
-});
-
 export const registerUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { email, name, password } = req.body;
-    
-    const validationError = validateRequiredFields({ email, password }, ['email', 'password']);
-    if (validationError) {
-      res.status(400).json({ error: validationError });
+
+    if (!email || !password) {
+      res.status(400).json({ error: 'Email i hasło są wymagane' });
       return;
     }
 
@@ -48,11 +28,25 @@ export const registerUser = async (req: Request, res: Response, next: NextFuncti
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+
     const newUser = await prisma.user.create({
-      data: { email, name, password: hashedPassword },
+      data: {
+        email,
+        name,
+        password: hashedPassword,
+        // rola jest ustawiana na UserRole.MEMBER (czyli 'MEMBER') domyślnie przez schemat Prisma
+      },
     });
 
-    res.status(201).json(createUserResponse(newUser));
+    const userResponse = {
+      id: newUser.id,
+      email: newUser.email,
+      name: newUser.name,
+      role: newUser.role, // Baza zwraca string, np. 'MEMBER'
+      createdAt: newUser.createdAt,
+    };
+
+    res.status(201).json(userResponse);
   } catch (error) {
     next(error);
   }
@@ -62,18 +56,27 @@ export const loginUser = async (req: Request, res: Response, next: NextFunction)
   try {
     const { email, password } = req.body;
 
-    const validationError = validateRequiredFields({ email, password }, ['email', 'password']);
-    if (validationError) {
-      res.status(400).json({ error: validationError });
+    if (!email || !password) {
+      res.status(400).json({ error: 'Email i hasło są wymagane' });
       return;
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+
+    if (!user) {
       res.status(401).json({ error: 'Nieprawidłowy email lub hasło' });
       return;
     }
 
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      res.status(401).json({ error: 'Nieprawidłowy email lub hasło' });
+      return;
+    }
+
+    // user.role to string z bazy. Możemy go rzutować na UserRole, jeśli jesteśmy pewni,
+    // że wartości w bazie odpowiadają enumowi (co powinny, jeśli dbamy o spójność).
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role as UserRole },
       JWT_SECRET!,
@@ -87,9 +90,10 @@ export const loginUser = async (req: Request, res: Response, next: NextFunction)
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
+        role: user.role, // Nadal string z bazy
       }
     });
+
   } catch (error) {
     next(error);
   }

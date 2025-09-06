@@ -2,59 +2,78 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../auth/auth.middleware';
 import prisma from '../db';
-import { findMysteryById } from '../utils/constants';
-import bcrypt from 'bcryptjs';
-import {
-  validateUser,
-  findMembershipById,
-  logUserAction,
-  sendNotFoundError,
-  sendBadRequestError,
-  sendForbiddenError,
-  sendSuccessResponse
-} from '../shared/common.helpers';
+import { findMysteryById, RosaryMystery } from '../utils/constants'; // Upewnij się, że RosaryMystery jest tu typem obiektu
+import bcrypt from 'bcryptjs'; // <<<< DODAJ IMPORT BCRYPTJS
 
-console.log("ŁADOWANIE PLIKU: member.controller.ts");
+console.log("ŁADOWANIE PLIKU: member.controller.ts"); // <<<< DODAJ TEN LOG
+
 
 export const getCurrentMysteryInfo = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  console.log(`[getCurrentMysteryInfo] Użytkownik ${req.user?.email} pobiera aktualną tajemnicę (pierwsze członkostwo).`);
   try {
-    if (!validateUser(req, res)) return;
-    
-    const { userId, email } = req.user!;
-    
-    logUserAction('getCurrentMysteryInfo', email, { userId });
+    if (!req.user || !req.user.userId) {
+      res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
+      return;
+    }
+    const userId = req.user.userId;
 
     const membership = await prisma.roseMembership.findFirst({
-      where: { userId },
+      where: { userId: userId },
       include: {
         rose: { 
           select: { 
-            id: true,
+            id: true, // Dodajmy ID Róży
             name: true,
             description: true,
-            zelator: { select: { id: true, name: true, email: true } }
-          }
+            zelator: { select: {id: true, name: true, email: true }}
+            // Można by też dołączyć aktualną główną intencję Róży, jeśli ten endpoint ma być głównym źródłem
+            // mainIntentions: {
+            //   where: { isActive: true, month: new Date().getMonth() + 1, year: new Date().getFullYear() },
+            //   orderBy: { createdAt: 'desc' },
+            //   take: 1,
+            //   include: { author: { select: { id: true, name: true, email: true } } }
+            // }
+          } 
         }
       }
     });
 
     if (!membership) {
-      return sendNotFoundError(res, 'Nie znaleziono aktywnego członkostwa w Róży dla tego użytkownika.');
+      res.status(404).json({ error: 'Nie znaleziono aktywnego członkostwa w Róży dla tego użytkownika.' });
+      return;
     }
 
     const mysteryDetails = membership.currentAssignedMystery ? findMysteryById(membership.currentAssignedMystery) : null;
+    
+    // Jeśli chcesz dołączyć intencję, odkomentuj i dostosuj poniżej:
+    // const currentMainIntention = membership.rose.mainIntentions && membership.rose.mainIntentions.length > 0 ? membership.rose.mainIntentions[0] : null;
+    // const { mainIntentions, ...roseDataOnly } = membership.rose; // Aby usunąć zagnieżdżone mainIntentions z rose
+
 
     if (membership.currentAssignedMystery && !mysteryDetails) {
-      console.error(`[getCurrentMysteryInfo] Nie znaleziono szczegółów dla tajemnicy o ID: ${membership.currentAssignedMystery} w członkostwie ${membership.id}.`);
+      console.error(`[getCurrentMysteryInfo] Nie znaleziono szczegółów dla tajemnicy o ID: ${membership.currentAssignedMystery} w członkostwiem ${membership.id}.`);
+      res.json({
+        membershipId: membership.id,
+        // rose: roseDataOnly, // Jeśli dołączasz intencję
+        rose: membership.rose, // Jeśli nie dołączasz intencji bezpośrednio tutaj
+        roseName: membership.rose.name, // Dla uproszczenia, jeśli nie wysyłasz całego obiektu rose
+        mystery: null,
+        confirmedAt: membership.mysteryConfirmedAt,
+        // currentMainIntentionForRose: currentMainIntention // Jeśli dołączasz
+      });
+      return;
     }
     
     res.json({
       membershipId: membership.id,
-      rose: membership.rose,
-      roseName: membership.rose.name,
+      // rose: roseDataOnly, // Jeśli dołączasz intencję
+      rose: membership.rose, // Jeśli nie dołączasz intencji bezpośrednio tutaj
+      roseName: membership.rose.name, // Dla uproszczenia
       mystery: mysteryDetails,
-      confirmedAt: membership.mysteryConfirmedAt
+      confirmedAt: membership.mysteryConfirmedAt,
+      // currentMainIntentionForRose: currentMainIntention // Jeśli dołączasz
     });
+
   } catch (error) {
     console.error('[getCurrentMysteryInfo] Błąd:', error);
     next(error);
@@ -62,84 +81,99 @@ export const getCurrentMysteryInfo = async (req: AuthenticatedRequest, res: Resp
 };
 
 export const confirmMysteryRead = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  console.log(`[confirmMysteryRead] Użytkownik ${req.user?.email} potwierdza tajemnicę dla członkostwa ${req.params.membershipId}.`);
   try {
-    if (!validateUser(req, res)) return;
-    
-    const { userId, email } = req.user!;
+    if (!req.user || !req.user.userId) {
+      res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
+      return;
+    }
+    const userId = req.user.userId;
     const { membershipId } = req.params;
-    
-    logUserAction('confirmMysteryRead', email, { membershipId });
 
-    const membershipBefore = await findMembershipById(membershipId);
-    if (!membershipBefore || membershipBefore.userId !== userId) {
-      return sendForbiddenError(res, 'Nie masz uprawnień do potwierdzenia tej tajemnicy lub członkostwo nie istnieje.');
-    }
-
-    if (!membershipBefore.currentAssignedMystery) {
-      return sendBadRequestError(res, 'Brak aktualnie przydzielonej tajemnicy do potwierdzenia.');
-    }
-    
-    const updatedMembership = await prisma.roseMembership.update({
+    const membershipBeforeUpdate = await prisma.roseMembership.findUnique({
       where: { id: membershipId },
-      data: { mysteryConfirmedAt: new Date() },
-      include: {
-        rose: { 
-          select: { 
-            id: true, 
-            name: true, 
-            description: true,
-            zelator: { select: { id: true, name: true, email: true } }
-          } 
-        },
-        user: { select: { id: true, email: true, name: true, role: true } }
-      }
     });
 
-    const mysteryDetails = updatedMembership.currentAssignedMystery ? findMysteryById(updatedMembership.currentAssignedMystery) : null;
+    if (!membershipBeforeUpdate || membershipBeforeUpdate.userId !== userId) {
+      res.status(403).json({ error: 'Nie masz uprawnień do potwierdzenia tej tajemnicy lub członkostwo nie istnieje.' });
+      return;
+    }
 
-    if (updatedMembership.currentAssignedMystery && !mysteryDetails) {
-      console.error(`[confirmMysteryRead] Nie znaleziono szczegółów dla potwierdzonej tajemnicy o ID: ${updatedMembership.currentAssignedMystery} (członkostwo ${membershipId})`);
+    if (!membershipBeforeUpdate.currentAssignedMystery) {
+        res.status(400).json({ error: 'Brak aktualnie przydzielonej tajemnicy do potwierdzenia.' });
+        return;
+    }
+    
+    const updatedMembershipData = await prisma.roseMembership.update({
+      where: { id: membershipId },
+      data: { mysteryConfirmedAt: new Date() },
+      include: { // Dołączamy potrzebne dane do skonstruowania pełnej odpowiedzi
+         rose: { 
+            select: { 
+                id: true, 
+                name: true, 
+                description: true,
+                zelator: { select: {id: true, name: true, email: true}}
+            } 
+        },
+        user: { // Dla spójności z UserMembership, choć userId już mamy
+            select: { id: true, email: true, name: true, role: true}
+        }
+     }
+    });
+
+    const mysteryDetails = updatedMembershipData.currentAssignedMystery ? findMysteryById(updatedMembershipData.currentAssignedMystery) : null;
+
+    if (updatedMembershipData.currentAssignedMystery && !mysteryDetails) {
+        console.error(`[confirmMysteryRead] Nie znaleziono szczegółów dla potwierdzonej tajemnicy o ID: ${updatedMembershipData.currentAssignedMystery} (członkostwo ${membershipId})`);
     }
 
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
-    
     const mainIntention = await prisma.roseMainIntention.findFirst({
-      where: {
-        roseId: updatedMembership.roseId,
-        month: currentMonth,
-        year: currentYear,
-        isActive: true
-      },
-      include: { 
-        author: { select: { id: true, name: true, email: true } }
-      }
+        where: {
+            roseId: updatedMembershipData.roseId, // Używamy roseId z zaktualizowanego członkostwa
+            month: currentMonth,
+            year: currentYear,
+            isActive: true
+        },
+        include: { 
+            author: {select: {id: true, name: true, email: true}}
+        }
     });
 
     console.log(`[confirmMysteryRead] Pomyślnie potwierdzono tajemnicę dla członkostwa ${membershipId}.`);
     
+    // Konstruujemy odpowiedź zgodną z typem UserMembership używanym na frontendzie
     const responseData = {
-      id: updatedMembership.id,
-      userId: updatedMembership.userId,
-      roseId: updatedMembership.roseId,
-      createdAt: updatedMembership.createdAt.toISOString(),
-      updatedAt: updatedMembership.updatedAt.toISOString(),
-      currentAssignedMystery: updatedMembership.currentAssignedMystery,
-      mysteryConfirmedAt: updatedMembership.mysteryConfirmedAt ? updatedMembership.mysteryConfirmedAt.toISOString() : null,
-      mysteryOrderIndex: updatedMembership.mysteryOrderIndex,
-      rose: updatedMembership.rose,
-      user: updatedMembership.user,
-      currentMysteryFullDetails: mysteryDetails,
-      currentMainIntentionForRose: mainIntention ? {
-        ...mainIntention,
-        createdAt: mainIntention.createdAt.toISOString(),
-        updatedAt: mainIntention.updatedAt.toISOString(),
-        author: mainIntention.authorId ? mainIntention.author : null,
-      } : null,
+        id: updatedMembershipData.id,
+        userId: updatedMembershipData.userId,
+        roseId: updatedMembershipData.roseId,
+        createdAt: updatedMembershipData.createdAt.toISOString(),
+        updatedAt: updatedMembershipData.updatedAt.toISOString(),
+        currentAssignedMystery: updatedMembershipData.currentAssignedMystery,
+        mysteryConfirmedAt: updatedMembershipData.mysteryConfirmedAt ? updatedMembershipData.mysteryConfirmedAt.toISOString() : null,
+        mysteryOrderIndex: updatedMembershipData.mysteryOrderIndex, // Jeśli to pole istnieje w modelu
+        rose: { // Struktura zgodna z BasicRoseInfo
+            id: updatedMembershipData.rose.id,
+            name: updatedMembershipData.rose.name,
+            description: updatedMembershipData.rose.description,
+            zelator: updatedMembershipData.rose.zelator
+        },
+        user: updatedMembershipData.user, // Dołączyliśmy całego użytkownika
+        currentMysteryFullDetails: mysteryDetails,
+        currentMainIntentionForRose: mainIntention ? {
+            ...mainIntention,
+            createdAt: mainIntention.createdAt.toISOString(),
+            updatedAt: mainIntention.updatedAt.toISOString(),
+            // Upewnij się, że autor jest null, jeśli authorId był null
+            author: mainIntention.authorId ? mainIntention.author : null,
+        } : null,
     };
     
     res.json(responseData);
+
   } catch (error) {
     console.error('[confirmMysteryRead] Błąd:', error);
     next(error);
@@ -147,86 +181,82 @@ export const confirmMysteryRead = async (req: AuthenticatedRequest, res: Respons
 };
 
 export const getMysteryHistory = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  console.log(`[getMysteryHistory] Użytkownik ${req.user?.email} pobiera historię dla członkostwa ${req.params.membershipId}.`);
   try {
-    if (!validateUser(req, res)) return;
-    
-    const { userId, email } = req.user!;
+    if (!req.user || !req.user.userId) {
+        res.status(403).json({ error: 'Sesja użytkownika wygasła lub użytkownik niezidentyfikowany.' });
+        return;
+    }
+    const userId = req.user.userId;
     const { membershipId } = req.params;
-    
-    logUserAction('getMysteryHistory', email, { membershipId });
 
     const membership = await prisma.roseMembership.findUnique({
-      where: { id: membershipId },
-      select: { userId: true, rose: { select: { name: true, id: true } } }
+        where: { id: membershipId },
+        select: { userId: true, rose: { select: { name: true, id: true } } }
     });
 
     if (!membership || membership.userId !== userId) {
-      return sendForbiddenError(res, 'Nie masz uprawnień do wyświetlenia historii dla tego członkostwa lub członkostwo nie istnieje.');
+        res.status(403).json({ error: 'Nie masz uprawnień do wyświetlenia historii dla tego członkostwa lub członkostwo nie istnieje.' });
+        return;
     }
 
     const history = await prisma.assignedMysteryHistory.findMany({
-      where: { membershipId },
-      orderBy: { assignedAt: 'desc' }
+        where: { membershipId: membershipId },
+        orderBy: { assignedAt: 'desc' },
     });
 
     const historyWithDetails = history.map(entry => {
-      const mysteryDetails = findMysteryById(entry.mystery);
-      return {
-        ...entry,
-        assignedAt: entry.assignedAt.toISOString(),
-        mysteryDetails: mysteryDetails || { 
-          id: entry.mystery, 
-          name: `Nieznana Tajemnica (ID: ${entry.mystery})`, 
-          group: 'Nieznana', 
-          contemplation: '', 
-          imageUrl: '' 
-        }
-      };
+        const mysteryDetails = findMysteryById(entry.mystery);
+        return {
+            ...entry,
+            // Konwertuj daty na stringi ISO dla spójności JSON
+            assignedAt: entry.assignedAt.toISOString(),
+            mysteryDetails: mysteryDetails || { id: entry.mystery, name: `Nieznana Tajemnica (ID: ${entry.mystery})`, group: 'Nieznana', contemplation: '', imageUrl: '' }
+        };
     });
-    
     console.log(`[getMysteryHistory] Znaleziono ${historyWithDetails.length} wpisów historii dla członkostwa ${membershipId}.`);
     res.json({
-      roseId: membership.rose.id,
-      roseName: membership.rose.name,
-      history: historyWithDetails
+        roseId: membership.rose.id,
+        roseName: membership.rose.name,
+        history: historyWithDetails
     });
+
   } catch (error) {
     console.error('[getMysteryHistory] Błąd:', error);
     next(error);
   }
 };
 
+
 export const listMyMemberships = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  console.log(`[listMyMemberships] Użytkownik ${req.user?.email} pobiera listę swoich członkostw w Różach.`);
   try {
-    if (!validateUser(req, res)) return;
-    
-    const { userId, email } = req.user!;
-    
-    logUserAction('listMyMemberships', email, { userId });
+    if (!req.user || !req.user.userId) { /* ... obsługa błędu ... */ return; }
+    const userId = req.user.userId;
 
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
-    const SHARED_INTENTIONS_LIMIT = 3;
+    const SHARED_INTENTIONS_LIMIT = 3; // Ile udostępnionych intencji pokazać na dashboardzie
 
     const memberships = await prisma.roseMembership.findMany({
-      where: { userId },
+      where: { userId: userId },
       include: {
-        user: { select: { id: true, email: true, name: true, role: true } },
+        user: { select: {id: true, email: true, name: true, role: true} },
         rose: {
           select: {
             id: true,
             name: true,
             description: true,
             zelator: { select: { id: true, name: true, email: true } },
-            mainIntentions: {
+            mainIntentions: { // Aktualna główna intencja
               where: { month: currentMonth, year: currentYear, isActive: true },
               orderBy: { createdAt: 'desc' },
               take: 1,
-              include: { author: { select: { id: true, name: true, email: true } } }
+              include: { author: {select: {id: true, name: true, email: true}} }
             },
-            sharedUserIntentions: {
-              where: { isSharedWithRose: true },
+            sharedUserIntentions: { // <<<< NOWE: Kilka ostatnich udostępnionych intencji
+              where: { isSharedWithRose: true }, // Upewnij się, że są udostępnione tej Róży
               orderBy: { createdAt: 'desc' },
               take: SHARED_INTENTIONS_LIMIT,
               include: { author: { select: { id: true, name: true, email: true } } }
@@ -239,8 +269,16 @@ export const listMyMemberships = async (req: AuthenticatedRequest, res: Response
 
     const membershipsWithProcessedData = memberships.map(memb => {
       const mysteryDetails = memb.currentAssignedMystery ? findMysteryById(memb.currentAssignedMystery) : null;
-      const currentMainIntention = memb.rose.mainIntentions && memb.rose.mainIntentions.length > 0 ? memb.rose.mainIntentions[0] : null;
+      
+      const currentMainIntention = memb.rose.mainIntentions && memb.rose.mainIntentions.length > 0 
+                                  ? memb.rose.mainIntentions[0] 
+                                  : null;
+      
+      // Pobieramy udostępnione intencje (już są w memb.rose.sharedUserIntentions)
       const sharedIntentionsForThisRose = memb.rose.sharedUserIntentions || [];
+
+      // Tworzymy nowy obiekt dla `rose` bez tablic `mainIntentions` i `sharedUserIntentions`
+      // aby uniknąć zagnieżdżenia i duplikacji danych w odpowiedzi dla `membership.rose`
       const { mainIntentions, sharedUserIntentions, ...roseData } = memb.rose;
 
       return {
@@ -253,71 +291,83 @@ export const listMyMemberships = async (req: AuthenticatedRequest, res: Response
         mysteryConfirmedAt: memb.mysteryConfirmedAt ? memb.mysteryConfirmedAt.toISOString() : null,
         mysteryOrderIndex: memb.mysteryOrderIndex,
         user: memb.user,
-        rose: roseData,
+        rose: roseData, // Dane róży bez tablic intencji
         currentMysteryFullDetails: mysteryDetails,
-        currentMainIntentionForRose: currentMainIntention ? {
-          ...currentMainIntention,
-          createdAt: currentMainIntention.createdAt.toISOString(),
-          updatedAt: currentMainIntention.updatedAt.toISOString(),
-          author: currentMainIntention.authorId ? currentMainIntention.author : null,
+        currentMainIntentionForRose: currentMainIntention ? { // Pojedyncza główna intencja
+            ...currentMainIntention,
+            createdAt: currentMainIntention.createdAt.toISOString(),
+            updatedAt: currentMainIntention.updatedAt.toISOString(),
+            author: currentMainIntention.authorId ? currentMainIntention.author : null,
         } : null,
-        sharedIntentionsPreview: sharedIntentionsForThisRose.map(si => ({
-          ...si,
-          createdAt: si.createdAt.toISOString(),
-          updatedAt: si.updatedAt.toISOString(),
-          author: si.authorId ? si.author : null,
-        }))
+        sharedIntentionsPreview: sharedIntentionsForThisRose.map(si => ({ // Lista udostępnionych intencji (podgląd)
+            ...si,
+            createdAt: si.createdAt.toISOString(),
+            updatedAt: si.updatedAt.toISOString(),
+            author: si.authorId ? si.author : null, // Upewnij się, że autor jest poprawnie przekazywany
+        })) 
       };
     });
 
-    console.log(`[listMyMemberships] Znaleziono ${membershipsWithProcessedData.length} członkostw dla użytkownika ${email}.`);
+    console.log(`[listMyMemberships] Znaleziono ${membershipsWithProcessedData.length} członkostw dla użytkownika ${req.user.email}.`);
     res.json(membershipsWithProcessedData);
+
   } catch (error) {
     console.error('[listMyMemberships] Błąd:', error);
     next(error);
   }
 };
 
+// NOWA FUNKCJA: Zmiana hasła przez zalogowanego użytkownika
 export const changePassword = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
+  const { oldPassword, newPassword } = req.body;
+  const userId = req.user?.userId;
+
+  console.log(`[changePassword] Użytkownik ${userId} próbuje zmienić hasło.`);
   try {
-    if (!validateUser(req, res)) return;
-    
-    const { userId, email } = req.user!;
-    const { oldPassword, newPassword } = req.body;
-    
-    logUserAction('changePassword', email, { userId });
+    if (!userId) {
+      res.status(403).json({ error: 'Użytkownik niezidentyfikowany.' });
+      return;
+    }
 
     if (!oldPassword || !newPassword) {
-      return sendBadRequestError(res, 'Stare i nowe hasło są wymagane.');
+      res.status(400).json({ error: 'Stare i nowe hasło są wymagane.' });
+      return;
     }
     
     if (newPassword.length < 6) {
-      return sendBadRequestError(res, 'Nowe hasło musi mieć co najmniej 6 znaków.');
+      res.status(400).json({ error: 'Nowe hasło musi mieć co najmniej 6 znaków.' });
+      return;
     }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      return sendNotFoundError(res, 'Nie znaleziono użytkownika.');
+      res.status(404).json({ error: 'Nie znaleziono użytkownika.' });
+      return;
     }
 
+    // 1. Sprawdź, czy stare hasło jest poprawne
     const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
     if (!isPasswordValid) {
       res.status(401).json({ error: 'Podane stare hasło jest nieprawidłowe.' });
       return;
     }
     
+    // 2. Sprawdź, czy nowe hasło nie jest takie samo jak stare
     if (oldPassword === newPassword) {
-      return sendBadRequestError(res, 'Nowe hasło musi być inne niż stare.');
+        res.status(400).json({ error: 'Nowe hasło musi być inne niż stare.' });
+        return;
     }
 
+    // 3. Zahashuj i zaktualizuj nowe hasło
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword }
+      data: { password: hashedPassword },
     });
 
     console.log(`[changePassword] Pomyślnie zmieniono hasło dla użytkownika ${userId}.`);
-    sendSuccessResponse(res, { message: 'Hasło zostało pomyślnie zmienione.' });
+    res.status(200).json({ message: 'Hasło zostało pomyślnie zmienione.' });
+
   } catch (error) {
     console.error('[changePassword] Błąd:', error);
     next(error);
